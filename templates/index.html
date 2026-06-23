@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeshDash // MeshCore Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<canvas id="bg-grid"></canvas>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">▚</span>
+    <div>
+      <div class="title">MESH<span>DASH</span></div>
+      <div class="subtitle">meshcore companion control deck</div>
+    </div>
+  </div>
+  <div class="conn">
+    <span id="conn-led" class="led"></span>
+    <span id="conn-text">connecting…</span>
+    <span class="port" id="port-text">/dev/ttyACM0</span>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- IDENTITY -->
+  <section class="card span-4" id="card-identity">
+    <h2>◈ node identity</h2>
+    <div class="node-name-row">
+      <input id="node-name" class="name-input" spellcheck="false" placeholder="node name">
+      <button id="btn-name" class="mini">rename</button>
+    </div>
+    <div class="kv"><span>pubkey</span><code id="pubkey" class="copy" title="click to copy">—</code></div>
+    <div class="kv"><span>adv type</span><code id="adv-type">—</code></div>
+    <div class="kv"><span>location</span><code id="loc-text">—</code></div>
+    <div class="kv"><span>uptime</span><code id="uptime">—</code></div>
+  </section>
+
+  <!-- BATTERY -->
+  <section class="card span-4" id="card-battery">
+    <h2>◈ power</h2>
+    <div class="batt-wrap">
+      <svg viewBox="0 0 120 120" class="gauge">
+        <circle cx="60" cy="60" r="52" class="gauge-bg"/>
+        <circle cx="60" cy="60" r="52" class="gauge-fg" id="batt-arc"/>
+        <text x="60" y="56" id="batt-pct" class="gauge-pct">—</text>
+        <text x="60" y="76" id="batt-mv" class="gauge-sub">—</text>
+      </svg>
+    </div>
+    <canvas id="batt-spark" height="54"></canvas>
+  </section>
+
+  <!-- RADIO -->
+  <section class="card span-4" id="card-radio">
+    <h2>◈ radio <span id="radio-match" class="tag"></span></h2>
+    <div class="radio-grid">
+      <label>freq (MHz)<input id="r-freq" type="number" step="0.001"></label>
+      <label>bw (kHz)<input id="r-bw" type="number" step="0.1"></label>
+      <label>sf<input id="r-sf" type="number" min="5" max="12"></label>
+      <label>cr<input id="r-cr" type="number" min="5" max="8"></label>
+    </div>
+    <div class="tx-row">
+      <label>tx power (dBm)<input id="r-tx" type="number" min="0" max="22"></label>
+      <span class="txmax">max <b id="tx-max">22</b></span>
+    </div>
+    <div class="btn-row">
+      <button id="btn-radio" class="primary">apply radio</button>
+      <button id="btn-mesh-default" class="ghost" title="869.618 / 62.5 / SF8 / CR8 / 22dBm">meshat preset</button>
+    </div>
+  </section>
+
+  <!-- RADAR -->
+  <section class="card span-4 radar-card" id="card-radar">
+    <h2>◈ mesh radar</h2>
+    <canvas id="radar"></canvas>
+    <div class="radar-legend"><span id="pkt-rate">0</span> evt/min · <span id="pkt-total">0</span> total</div>
+  </section>
+
+  <!-- MAP -->
+  <section class="card span-4" id="card-map">
+    <h2>◈ position <span class="hint">click map to set</span></h2>
+    <div id="map"></div>
+  </section>
+
+  <!-- ACTIONS -->
+  <section class="card span-4" id="card-actions">
+    <h2>◈ actions</h2>
+    <div class="action-grid">
+      <button id="btn-advert" class="primary">⇆ advert</button>
+      <button id="btn-advert-flood" class="ghost">⇶ flood advert</button>
+      <button id="btn-time" class="ghost">⏱ sync clock</button>
+      <button id="btn-reboot" class="danger">⟲ reboot</button>
+    </div>
+    <div class="stat-strip" id="stat-strip"></div>
+  </section>
+
+  <!-- SIGNAL -->
+  <section class="card span-4" id="card-signal">
+    <h2>◈ signal</h2>
+    <div class="chart-wrap"><canvas id="rssi-chart" height="120"></canvas></div>
+    <div class="chart-label">rssi (dBm) · snr (dB) — recent RX</div>
+    <div class="chart-wrap"><canvas id="pkt-chart" height="118"></canvas></div>
+    <div class="chart-label">packets by type</div>
+  </section>
+
+  <!-- CHAT -->
+  <section class="card span-8 chat-card" id="card-chat">
+    <h2>◈ chat <button id="btn-add-chan" class="mini">+ channel</button></h2>
+    <div class="chat-body">
+      <div id="thread-list" class="thread-list"></div>
+      <div class="chat-main">
+        <div id="chat-title" class="chat-title">#public</div>
+        <div id="chat-thread" class="chat-thread"></div>
+        <div class="chat-input">
+          <input id="chat-text" placeholder="message…" spellcheck="false">
+          <button id="btn-chat-send" class="primary">send ▸</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE FEED -->
+  <section class="card span-8 feed-card" id="card-feed">
+    <h2>◈ live packet feed
+      <span class="feed-tools">
+        <input id="feed-filter" placeholder="filter…" spellcheck="false">
+        <button id="btn-clear" class="mini">clear</button>
+      </span>
+    </h2>
+    <div id="feed" class="feed"></div>
+  </section>
+
+  <!-- CONTACTS -->
+  <section class="card span-4" id="card-contacts">
+    <h2>◈ contacts <span class="tag" id="contacts-count">0</span></h2>
+    <div id="contacts" class="contacts"></div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast"></div>
+
+<div id="trace-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">⤳ route to <span id="trace-name">—</span><button id="trace-close" class="mini">✕</button></div>
+    <div id="trace-body" class="trace-body"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
