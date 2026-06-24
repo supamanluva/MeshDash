@@ -343,7 +343,9 @@ function renderTrace(r, name){
       <div class="hop me">${esc(selfName)}</div><div class="arrow">⇢</div>
       <div class="hop flood">flood<br><small>no fixed path</small></div><div class="arrow">⇢</div>
       <div class="hop dest">${esc(name)}</div></div>
-      <div class="trace-note">reached by flooding the mesh — the node has no learned direct route.</div>`;
+      <div class="trace-note">No direct route learned yet — your node reaches ${esc(name)} by flooding the mesh.<br>
+      Flood-advert your node and send ${esc(name)} a message; once it's delivered (✓✓) the return route is
+      recorded, and tracing again will show the repeater hops.</div>`;
     return;
   }
   const hops = r.hops || [];

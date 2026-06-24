@@ -488,11 +488,17 @@ def api_trace():
         return jsonify(ok=True, flood=False, name=MOCK_CONTACTS.get(pubkey, {}).get("adv_name", "node"),
                        hops=[{"hash": "a3", "label": "DEMO-Repeater-9"},
                              {"hash": "7f", "label": "DEMO-Gateway-7F"}])
-    # best-effort active discovery, then read the contact's resolved path
+    # 1) active discovery — use the PATH_RESPONSE directly if one comes back
+    disc_hops = []
     try:
-        run(mc.commands.send_path_discovery_sync(pubkey, timeout=8), timeout=14)
+        r = run(mc.commands.send_path_discovery_sync(pubkey, timeout=8), timeout=14)
+        if r is not None:
+            p = _jsonable(getattr(r, "payload", {}) or {})
+            ph = p.get("path", "") or ""
+            disc_hops = [ph[i:i + 2] for i in range(0, len(ph), 2)] if ph else []
     except Exception:
         pass
+    # 2) fall back to the contact's stored route
     cdict = {}
     try:
         ev = run(mc.commands.get_contacts())
@@ -503,9 +509,11 @@ def api_trace():
         (v for v in cdict.values() if str(v.get("public_key", "")).startswith(pubkey[:12])), {})
     opath = c.get("out_path", "") or ""
     olen = c.get("out_path_len", -1)
-    flood = olen is None or olen < 0
-    hops = [] if flood else [{"hash": opath[i:i + 2], "label": None} for i in range(0, len(opath), 2)]
-    return jsonify(ok=True, flood=flood, name=c.get("adv_name") or "node", hops=hops)
+    stored = [opath[i:i + 2] for i in range(0, len(opath), 2)] if (olen is not None and olen >= 0) else []
+    raw = disc_hops or stored
+    flood = not raw
+    return jsonify(ok=True, flood=flood, name=c.get("adv_name") or "node",
+                   hops=[{"hash": h, "label": None} for h in raw])
 
 
 @app.route("/api/reboot", methods=["POST"])
