@@ -122,18 +122,37 @@ function addBlip(type){
 }
 
 // ---------- contacts ----------
+let knownKeys = null;          // pubkeys already seen (null until first load)
+const newUntil = {};           // pubkey -> timestamp until which to flash "NEW"
 async function pollContacts(){
   let c; try{ c = await getJSON('/api/contacts'); }catch(e){ return; }
   const list = Object.values(c||{});
+  list.sort((a,b)=> (b.last_advert||0) - (a.last_advert||0));   // freshest-heard first
   $('#contacts-count').textContent = list.length;
+  const now = Date.now();
+  const keys = new Set(list.map(ct=> ct.public_key||''));
+  if(knownKeys === null){
+    knownKeys = keys;                                           // first load: don't flash existing
+  } else {
+    list.forEach(ct=>{
+      const pk = ct.public_key || '';
+      if(pk && !knownKeys.has(pk)){
+        newUntil[pk] = now + 20000;
+        toast('new contact: ' + (ct.adv_name || ct.name || pk.slice(0,8)));
+      }
+    });
+    knownKeys = keys;
+  }
   const box = $('#contacts'); contactKeys = {};
   if(!list.length){ box.innerHTML = '<div class="empty">no contacts yet — they appear as nodes advertise</div>'; drawContacts([]); return; }
   box.innerHTML = list.map(ct=>{
     const pubkey = ct.public_key || '';
     const name = ct.adv_name || ct.name || pubkey.slice(0,8) || 'node';
     contactKeys[pubkey.slice(0,12)] = {pubkey, name};
-    return `<div class="contact" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open PM">
-              <b>${esc(name)}</b>
+    const isNew = newUntil[pubkey] && now < newUntil[pubkey];
+    const badge = isNew ? '<span class="new-badge">NEW</span>' : '';
+    return `<div class="contact${isNew?' new-contact':''}" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open PM">
+              <span class="c-left"><b>${esc(name)}</b>${badge}</span>
               <span class="c-right"><small>${pubkey.slice(0,8)}… ✉</small>
                 <button class="c-trace" title="trace route">⤳</button></span></div>`;
   }).join('');
@@ -411,9 +430,10 @@ setInterval(loadChannels, 15000);
 const _shot = new URLSearchParams(location.search).get('shot');
 if(_shot){
   setTimeout(()=>{
-    const first = Object.values(contactKeys)[0];
+    const vals = Object.values(contactKeys); const first = vals[0];
     if(!first) return;
     if(_shot==='trace') traceContact(first.pubkey, first.name);   // no scroll — clean centered modal
+    else if(_shot==='newcontact'){ newUntil[first.pubkey]=Date.now()+30000; toast('new contact: '+first.name); pollContacts(); }
     else openDM(first.pubkey, first.name);
   }, 1700);
 }

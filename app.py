@@ -26,6 +26,7 @@ PORT = "/dev/ttyACM0"
 BAUD = 115200
 HTTP_PORT = int(os.environ.get("MESHDASH_PORT", "8787"))
 DEMO = os.environ.get("MESHDASH_DEMO") == "1"   # serve synthetic data, no radio needed
+DEMO_START = time.time()
 
 app = Flask(__name__)
 
@@ -329,7 +330,10 @@ def api_events():
 @require_node
 def api_contacts():
     if DEMO:
-        return jsonify(MOCK_CONTACTS)
+        items = list(MOCK_CONTACTS.items())
+        if time.time() - DEMO_START < 6:          # reveal the last node a few seconds in (demo the NEW flash)
+            items = items[:-1]
+        return jsonify(dict(items))
     ev = run(mc.commands.get_contacts())
     return jsonify(_jsonable(getattr(ev, "payload", {}) or {}))
 

@@ -124,12 +124,19 @@ button.mini{padding:7px 11px;font-size:11px}
 .ty-PATH_UPDATE,.ty-RX_LOG_DATA{color:var(--amber)}
 
 /* contacts */
-.contacts{max-height:230px;overflow-y:auto}
+.contacts{max-height:460px;overflow-y:auto}
+.contacts::-webkit-scrollbar{width:7px}.contacts::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
 .contact{display:flex;justify-content:space-between;align-items:center;padding:9px 8px;border-bottom:1px dashed rgba(255,255,255,.06);
   cursor:pointer;border-radius:7px;transition:.13s}
 .contact:hover{background:rgba(232,121,249,.08);box-shadow:inset 0 0 0 1px rgba(232,121,249,.25)}
 .contact b{color:#eaffff}.contact small{color:var(--dim)}
 .contact:hover small{color:var(--magenta)}
+.c-left{display:flex;align-items:center;gap:7px;min-width:0}
+.c-left b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.new-badge{background:var(--green);color:#04140c;font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;
+  letter-spacing:.5px;box-shadow:0 0 10px -2px var(--green);flex-shrink:0;animation:pulse 1.4s infinite}
+.contact.new-contact{animation:newflash 2s ease-in-out infinite}
+@keyframes newflash{0%,100%{background:transparent}50%{background:rgba(52,211,153,.14)}}
 .chan-tab.pm{border-color:rgba(232,121,249,.5);color:var(--magenta)}
 .chan-tab.pm.active{background:linear-gradient(180deg,#3a1242,#2a0b32);border-color:var(--magenta);color:#ffe6ff;box-shadow:0 0 12px -4px var(--magenta)}
 .empty{color:var(--dim);text-align:center;padding:20px;font-size:11px}
