@@ -55,6 +55,9 @@ messages = {}                        # thread key -> deque of msg dicts
 channels = {}                        # channel idx -> name
 signal_history = deque(maxlen=150)   # {ts, rssi, snr} captured from RX events
 pending_acks = {}                    # expected_ack hex -> outgoing message dict
+rf_times = deque(maxlen=800)         # timestamps of packets heard over the air
+RX_RF_TYPES = {"RX_LOG_DATA", "ADVERTISEMENT", "CONTACT_MSG_RECV", "CHANNEL_MSG_RECV",
+               "ACK", "PATH_RESPONSE", "PATH_UPDATE", "NEW_CONTACT"}
 
 
 def _add_msg(thread, direction, text, who, ts=None, status=None, ack=None):
@@ -89,6 +92,8 @@ def _on_event(ev):
         etype = "?"
     _event_id += 1
     event_counts[etype] = event_counts.get(etype, 0) + 1
+    if etype in RX_RF_TYPES:
+        rf_times.append(time.time())
     payload = _jsonable(getattr(ev, "payload", None))
     events.append({
         "id": _event_id,
@@ -250,6 +255,8 @@ def seed_demo():
     sn = [9, 8, 7, 8, 9, 10, 7, 5, 4, 5, 6, 8, 9, 8, 6, 5, 6, 7, 9, 8]
     for i in range(40):
         signal_history.append({"ts": now - (40 - i) * 20, "rssi": rs[i % len(rs)], "snr": sn[i % len(sn)]})
+    for i in range(30):
+        rf_times.append(now - i * 6)
     samples = [
         ("ADVERTISEMENT", {"public_key": _DEMO_NODES[0][0]}),
         ("NEW_CONTACT", {"adv_name": "DEMO-Beacon-X2"}),
@@ -268,6 +275,8 @@ def seed_demo():
         _event_id += 1
         event_counts[et] = event_counts.get(et, 0) + 1
         events.append({"id": _event_id, "ts": now - (60 - i) * 4, "type": et, "data": data})
+    event_counts["MSG_SENT"] = 8   # set after the loop so the link delivery ratio is sensible (6/8)
+    event_counts["ACK"] = 6
 
 
 # kick off connection + watchdog (or seed synthetic data in demo mode)
@@ -304,9 +313,21 @@ def index():
 @app.route("/api/status")
 def api_status():
     info = MOCK_SELF_INFO if DEMO else (_jsonable(getattr(mc, "self_info", {}) or {}) if mc else {})
+    nowt = time.time()
+    recent = [t for t in rf_times if nowt - t < 180]
+    sig = list(signal_history)[-12:]
+    rssis = [s["rssi"] for s in sig if s.get("rssi") is not None]
+    link = {
+        "sent": event_counts.get("MSG_SENT", 0),
+        "acked": event_counts.get("ACK", 0),
+        "rx_per_min": round(len(recent) / 3.0, 1),
+        "last_rx_ago": (nowt - rf_times[-1]) if rf_times else None,
+        "rssi": round(sum(rssis) / len(rssis)) if rssis else None,
+    }
     return jsonify({
         "connected": state["connected"],
         "demo": DEMO,
+        "link": link,
         "port": state["port"],
         "error": state["error"],
         "uptime": time.time() - state["since_boot"],

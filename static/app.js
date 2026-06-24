@@ -59,6 +59,23 @@ async function pollStatus(){
     || '<span class="chip">no packets yet</span>';
   $('#pkt-total').textContent = s.event_total||0;
   drawSignal(s.signal_history||[], ec);
+  renderLink(s.link);
+}
+function renderLink(l){
+  if(!l) return;
+  const sent=l.sent||0, acked=l.acked||0, rpm=l.rx_per_min||0, lastAgo=l.last_rx_ago;
+  const rxAlive = rpm>0 || (lastAgo!=null && lastAgo<300);
+  let v,cls,hint;
+  if(!rxAlive){ v='ISOLATED'; cls='lv-bad'; hint='Hearing no RF traffic — move toward a node/repeater or check the antenna.'; }
+  else if(sent>0 && acked===0){ v='RX-ONLY'; cls='lv-warn'; hint='You hear the mesh but aren’t being heard back. Better antenna / placement, or move closer to a repeater.'; }
+  else if(acked>0){ v='LINKED'; cls='lv-good'; hint='Two-way link confirmed — your messages are being acknowledged.'; }
+  else { v='LISTENING'; cls='lv-cyan'; hint='Hearing the mesh. Send a DM to test whether you’re heard back.'; }
+  const el=$('#link-verdict'); el.textContent=v; el.className='link-verdict '+cls;
+  $('#lk-deliv').textContent = sent ? `${acked}/${sent} (${Math.round(acked/sent*100)}%)` : '—';
+  $('#lk-rx').textContent = rpm + ' /min';
+  $('#lk-last').textContent = lastAgo==null ? 'never' : (lastAgo<90 ? Math.round(lastAgo)+'s ago' : Math.round(lastAgo/60)+'m ago');
+  $('#lk-rssi').textContent = (l.rssi==null) ? '—' : l.rssi+' dBm';
+  $('#link-hint').textContent = hint;
 }
 const setVal=(sel,v)=>{ if(v!=null) $(sel).value = v; };
 function setConn(on){

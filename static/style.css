@@ -28,7 +28,7 @@ body{
 .port{color:var(--dim);border:1px solid var(--line);padding:3px 8px;border-radius:5px}
 
 /* grid */
-.grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(12,1fr);gap:16px;padding:20px;max-width:1500px;margin:0 auto}
+.grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(12,1fr);grid-auto-flow:row dense;gap:16px;padding:20px;max-width:1500px;margin:0 auto}
 .span-4{grid-column:span 4}.span-8{grid-column:span 8}
 @media(max-width:1100px){.span-4{grid-column:span 6}.span-8{grid-column:span 12}}
 @media(max-width:720px){.span-4,.span-8{grid-column:span 12}}
@@ -223,6 +223,19 @@ button.mini{padding:7px 11px;font-size:11px}
 .hop .hh{color:var(--cyan);font-weight:700}
 .arrow{color:var(--dim);font-size:16px}
 .trace-note{text-align:center;color:var(--dim);font-size:10px;margin-top:16px;letter-spacing:.5px}
+
+/* link health */
+.link-verdict{text-align:center;font-family:'Orbitron',sans-serif;font-weight:900;font-size:21px;letter-spacing:3px;
+  padding:15px;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);color:var(--dim)}
+.lv-good{color:var(--green);border-color:rgba(52,211,153,.5);box-shadow:inset 0 0 26px -10px var(--green),0 0 18px -9px var(--green);text-shadow:0 0 14px var(--green)}
+.lv-warn{color:var(--amber);border-color:rgba(251,191,36,.5);box-shadow:inset 0 0 26px -10px var(--amber);text-shadow:0 0 12px var(--amber)}
+.lv-bad{color:var(--red);border-color:rgba(244,63,94,.5);box-shadow:inset 0 0 26px -10px var(--red);text-shadow:0 0 12px var(--red);animation:pulse 1.8s infinite}
+.lv-cyan{color:var(--cyan);border-color:var(--line2);text-shadow:0 0 12px var(--cyan)}
+.link-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lk{background:#0a141a;border:1px solid var(--line);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:3px}
+.lk span{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.lk b{font-size:14px;color:#eaffff}
+.link-hint{font-size:10px;color:var(--dim);margin-top:12px;line-height:1.45;text-align:center}
 
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 @keyframes slidein{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
