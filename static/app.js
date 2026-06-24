@@ -231,6 +231,7 @@ function wire(){
 }
 // ---------- chat: thread sidebar (channels + PMs) with unread badges ----------
 let activeThread = 'chan:0', activeDm = null, knownChannels = [], contactKeys = {}, threads = [];
+let _msgSig = null, _threadSig = null;   // change-detection so we don't re-render (and re-animate) every poll
 const SEEN_KEY = 'meshdash_seen';
 const lastSeen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
 const saveSeen = ()=> localStorage.setItem(SEEN_KEY, JSON.stringify(lastSeen));
@@ -249,6 +250,9 @@ async function pollThreads(){
   threads = r.threads || []; renderThreads();
 }
 function renderThreads(){
+  const sig = JSON.stringify(threads)+'|'+activeThread+'|'+JSON.stringify(lastSeen)+'|'+Object.keys(contactKeys).join(',');
+  if(sig===_threadSig) return;          // nothing changed -> skip re-render
+  _threadSig = sig;
   const box = $('#thread-list');
   box.innerHTML = threads.map(t=>{
     const unread = Math.max(0, t.count - (lastSeen[t.thread]||0));
@@ -287,9 +291,12 @@ function updateChatTitle(){
 }
 async function pollMessages(force){
   let r; try{ r = await getJSON('/api/messages?thread='+encodeURIComponent(activeThread)); }catch(e){ return; }
+  const msgs=r.messages||[];
+  const sig = activeThread+'|'+JSON.stringify(msgs);
+  if(!force && sig===_msgSig) return;   // unchanged -> don't rebuild (stops the blink)
+  _msgSig = sig;
   const box=$('#chat-thread'); const nearBottom = box.scrollHeight-box.scrollTop-box.clientHeight < 80;
   const dmName = (activeThread.startsWith('dm:') && activeDm) ? activeDm.name : null;
-  const msgs=r.messages||[];
   box.innerHTML = msgs.length ? msgs.map(m=>{
     const sec = m.ts<2e10 ? m.ts*1000 : m.ts;
     const t=new Date(sec).toLocaleTimeString();
