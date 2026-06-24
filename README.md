@@ -16,9 +16,10 @@ Python library and serves a single-page dashboard with a live view of the mesh.
 - **Radio config** — edit freq / bandwidth / SF / coding-rate / TX power, with an
   on-mesh vs. mismatch indicator and a one-click "meshat preset".
 - **Signal charts** — RSSI / SNR history of recent receptions + a packets-by-type histogram.
-- **Link health** — at-a-glance verdict (ISOLATED / RX-ONLY / LINKED), message delivery
-  ratio, live RX rate, and time-since-last-heard — handy for finding a spot where your
-  node is actually heard back.
+- **Link health** — at-a-glance verdict (LINKED / RX OK / QUIET), ACK count, live RX
+  rate, and time-since-last-heard. Note: only *online companion* nodes ACK, so a healthy
+  node normally reads **RX OK** until you DM an active peer (it does **not** mean you're
+  not being heard — broadcasts like adverts don't ACK).
 - **Live mesh map** (Leaflet) — your node *and every neighbour* plotted with links; click
   the map to set your own position.
 - **Chat** — a thread sidebar with **unread badges** covering the public channel,

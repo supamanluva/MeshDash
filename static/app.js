@@ -64,14 +64,22 @@ async function pollStatus(){
 function renderLink(l){
   if(!l) return;
   const sent=l.sent||0, acked=l.acked||0, rpm=l.rx_per_min||0, lastAgo=l.last_rx_ago;
-  const rxAlive = rpm>0 || (lastAgo!=null && lastAgo<300);
+  const heard = rpm>0 || (lastAgo!=null && lastAgo<900);   // any RF in the last ~15 min
   let v,cls,hint;
-  if(!rxAlive){ v='ISOLATED'; cls='lv-bad'; hint='Hearing no RF traffic — move toward a node/repeater or check the antenna.'; }
-  else if(sent>0 && acked===0){ v='RX-ONLY'; cls='lv-warn'; hint='You hear the mesh but aren’t being heard back. Better antenna / placement, or move closer to a repeater.'; }
-  else if(acked>0){ v='LINKED'; cls='lv-good'; hint='Two-way link confirmed — your messages are being acknowledged.'; }
-  else { v='LISTENING'; cls='lv-cyan'; hint='Hearing the mesh. Send a DM to test whether you’re heard back.'; }
+  if(acked>0){                       // an ACK is the only LOCAL proof of two-way
+    v='LINKED'; cls='lv-good';
+    hint='Two-way confirmed — a direct message was ACKed.';
+  } else if(heard){
+    v='RX OK'; cls='lv-cyan';
+    hint = sent>0
+      ? 'Hearing the mesh fine. No ACK yet — but only ONLINE COMPANION nodes ACK; repeaters, room servers and offline nodes never will. So this is usually normal. DM an active person to confirm two-way, or check meshcore.meshat.se to see the network hearing your adverts.'
+      : 'Hearing the mesh. DM an online companion to confirm a two-way link.';
+  } else {
+    v='QUIET'; cls='lv-warn';
+    hint='No RF heard in a while. Adverts are sparse so this can be normal — but if it stays quiet, check the antenna / placement.';
+  }
   const el=$('#link-verdict'); el.textContent=v; el.className='link-verdict '+cls;
-  $('#lk-deliv').textContent = sent ? `${acked}/${sent} (${Math.round(acked/sent*100)}%)` : '—';
+  $('#lk-deliv').textContent = sent ? `${acked}/${sent}` : 'none sent';
   $('#lk-rx').textContent = rpm + ' /min';
   $('#lk-last').textContent = lastAgo==null ? 'never' : (lastAgo<90 ? Math.round(lastAgo)+'s ago' : Math.round(lastAgo/60)+'m ago');
   $('#lk-rssi').textContent = (l.rssi==null) ? '—' : l.rssi+' dBm';
