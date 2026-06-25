@@ -89,6 +89,14 @@ above were generated):
 MESHDASH_DEMO=1 uv run python app.py
 ```
 
+### Tests
+
+```bash
+uv run pytest
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for the feature history.
+
 ## ⚠️ Security
 
 By default the server is unauthenticated and binds to `0.0.0.0`. Gate it with an optional

@@ -286,6 +286,12 @@ button.mini{padding:7px 11px;font-size:11px}
 .chan-row b{flex:1;color:#eaffff}.chan-row .slot{font-size:9px;color:var(--dim)}
 .chan-row.empty-slot b{color:var(--dim);font-style:italic}
 
+.modal-foot{text-align:center;color:var(--dim);font-size:9px;margin-top:16px;letter-spacing:.5px}
+.modal-foot a{color:var(--cyan);text-decoration:none}
+
+/* accessibility: visible keyboard focus */
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+
 /* responsive polish (phones) */
 @media(max-width:600px){
   .topbar{flex-wrap:wrap;gap:8px;padding:12px 14px}

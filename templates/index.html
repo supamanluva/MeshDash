@@ -29,8 +29,8 @@
     <span id="conn-led" class="led"></span>
     <span id="conn-text">connecting…</span>
     <span class="port" id="port-text">/dev/ttyACM0</span>
-    <button id="btn-notify" class="icon-btn" title="Notifications">🔕</button>
-    <button id="btn-settings" class="icon-btn" title="Settings">⚙</button>
+    <button id="btn-notify" class="icon-btn" title="Notifications" aria-label="Toggle notifications">🔕</button>
+    <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Open settings">⚙</button>
   </div>
 </header>
 
@@ -165,11 +165,11 @@
 
 </main>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <div id="modal" class="modal">
-  <div class="modal-box">
-    <div class="modal-head"><span id="modal-title">—</span><button id="modal-close" class="mini">✕</button></div>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head"><span id="modal-title">—</span><button id="modal-close" class="mini" aria-label="Close dialog">✕</button></div>
     <div id="modal-body" class="modal-body"></div>
   </div>
 </div>

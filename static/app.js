@@ -1,6 +1,7 @@
 'use strict';
 const $ = s => document.querySelector(s);
 const MESH = { freq: 869.618, bw: 62.5, sf: 8, cr: 8, tx: 22 };
+const VERSION = '1.0.0';
 
 // ---------- helpers ----------
 async function getJSON(u){ const r = await fetch(u); return r.json(); }
@@ -216,13 +217,14 @@ async function pollContacts(){
     const name = ct.adv_name || ct.name || pubkey.slice(0,8) || 'node';
     const isNew = newUntil[pubkey] && now < newUntil[pubkey];
     const badge = isNew ? '<span class="new-badge">NEW</span>' : '';
-    return `<div class="contact${isNew?' new-contact':''}" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open details">
+    return `<div class="contact${isNew?' new-contact':''}" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open details" role="button" tabindex="0">
               <span class="c-left"><b>${esc(name)}</b>${badge}</span>
               <span class="c-right"><small>${pubkey.slice(0,8)}… ✉</small>
-                <button class="c-trace" title="trace route">⤳</button></span></div>`;
+                <button class="c-trace" title="trace route" aria-label="Trace route to ${esc(name)}">⤳</button></span></div>`;
   }).join('') : `<div class="empty">no contacts match “${esc(flt)}”</div>`;
   box.querySelectorAll('.contact').forEach(el=>{
     el.onclick=()=> openNodeDetail(el.dataset.pubkey);
+    el.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openNodeDetail(el.dataset.pubkey); } };
     const tb=el.querySelector('.c-trace');
     if(tb) tb.onclick=(e)=>{ e.stopPropagation(); traceContact(el.dataset.pubkey, el.dataset.name); };
   });
@@ -358,15 +360,18 @@ function renderThreads(){
     const active = t.thread===activeThread ? 'active' : '';
     const icon = t.kind==='dm' ? '✉' : (t.idx===0 ? '#' : '🔒');
     const badge = (unread>0 && t.thread!==activeThread) ? `<span class="unread">${unread}</span>` : '';
-    return `<div class="thread-item ${active}" data-thread="${t.thread}" data-kind="${t.kind}" data-prefix="${t.prefix||''}">
+    return `<div class="thread-item ${active}" data-thread="${t.thread}" data-kind="${t.kind}" data-prefix="${t.prefix||''}" role="button" tabindex="0">
       <div class="ti-top"><span class="ti-icon">${icon}</span><b>${esc(threadLabel(t))}</b>${badge}</div>
       <small>${esc(t.preview||'')}</small></div>`;
   }).join('') || '<div class="empty">no threads</div>';
-  box.querySelectorAll('.thread-item').forEach(el=> el.onclick=()=>{
-    if(el.dataset.kind==='dm'){ const c=contactKeys[el.dataset.prefix];
-      activeDm = c ? {pubkey:c.pubkey,name:c.name} : {pubkey:el.dataset.prefix,name:el.dataset.prefix}; }
-    else activeDm=null;
-    selectThread(el.dataset.thread);
+  box.querySelectorAll('.thread-item').forEach(el=>{
+    const act=()=>{
+      if(el.dataset.kind==='dm'){ const c=contactKeys[el.dataset.prefix];
+        activeDm = c ? {pubkey:c.pubkey,name:c.name} : {pubkey:el.dataset.prefix,name:el.dataset.prefix}; }
+      else activeDm=null;
+      selectThread(el.dataset.thread);
+    };
+    el.onclick=act; el.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } };
   });
 }
 function markSeen(thread){ const t=threads.find(x=>x.thread===thread); if(t){ lastSeen[thread]=t.count; saveSeen(); } }
@@ -427,7 +432,8 @@ async function addChannel(){
 }
 
 // ---------- generic modal ----------
-function openModal(title, html){ $('#modal-title').textContent=title; $('#modal-body').innerHTML=html; $('#modal').classList.add('show'); }
+function openModal(title, html){ $('#modal-title').textContent=title; $('#modal-body').innerHTML=html; $('#modal').classList.add('show');
+  const f=$('#modal-body').querySelector('input,button,a,select,textarea'); (f||$('#modal-close')).focus(); }
 function setModalBody(html){ $('#modal-body').innerHTML=html; }
 function closeModal(){ $('#modal').classList.remove('show'); }
 
@@ -596,7 +602,8 @@ function openSettings(){
       <div class="modal-actions"><button class="ghost grow" id="set-export">⭳ export chat (json)</button>
         <button class="ghost grow" id="set-shortcuts">⌨ shortcuts</button>
         ${authEnabled?'<button class="ghost grow" id="set-logout">⎋ log out</button>':''}</div></div>
-    <div class="modal-actions"><button class="primary grow" id="set-save">save all</button></div>`);
+    <div class="modal-actions"><button class="primary grow" id="set-save">save all</button></div>
+    <div class="modal-foot">MeshDash v${VERSION} · <a href="https://github.com/supamanluva/MeshDash" target="_blank" rel="noopener">github</a></div>`);
   $('#set-export').onclick = ()=> window.open('/api/export/messages','_blank');
   $('#set-shortcuts').onclick = openShortcuts;
   if(authEnabled){ const lo=$('#set-logout'); if(lo) lo.onclick=()=>{ window.location='/logout'; }; }
