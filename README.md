@@ -41,17 +41,19 @@ Python library and serves a single-page dashboard with a live view of the mesh.
 
 ## Screenshots
 
-The full deck — live packet feed, signal charts, mesh map, chat sidebar, and contacts:
+The full deck — battery & signal charts, mesh radar, live map, link-health, chat sidebar, and contacts:
 
 ![Full MeshDash view](docs/dashboard.png)
 
-Direct messages with delivery ticks, plus the thread sidebar with unread badges:
+| Messaging — delivery ticks, unread badges | Node detail + neighbour telemetry |
+| :---: | :---: |
+| ![Messaging](docs/messaging.png) | ![Telemetry](docs/telemetry.png) |
+| **Consolidated settings** | **Traceroute** |
+| ![Settings](docs/settings.png) | ![Traceroute](docs/traceroute.png) |
 
-![Messaging](docs/messaging.png)
+Optional password login:
 
-Traceroute — the repeater hops from your node to a contact:
-
-![Traceroute](docs/traceroute.png)
+![Login](docs/login.png)
 
 ## Architecture
 
