@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeshDash // sign in</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/icon.svg">
+<style>
+  body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(1000px 600px at 70% -10%,#0c1a22 0,#05080b 55%),#05080b;
+    font-family:'JetBrains Mono',ui-monospace,monospace;color:#cfe9ee}
+  .box{width:320px;max-width:90vw;background:rgba(16,24,32,.72);border:1px solid rgba(64,224,208,.25);
+    border-radius:16px;padding:30px 26px;box-shadow:0 0 44px -16px #22d3ee;backdrop-filter:blur(6px)}
+  .logo{font-size:34px;color:#22d3ee;text-shadow:0 0 18px #22d3ee;text-align:center}
+  h1{font-family:'Orbitron',sans-serif;font-weight:900;letter-spacing:4px;font-size:20px;text-align:center;
+    margin:6px 0 2px;color:#eaffff}
+  h1 span{color:#22d3ee}
+  .sub{text-align:center;color:#6b8593;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:22px}
+  input{width:100%;background:#0a141a;border:1px solid rgba(64,224,208,.18);color:#eaffff;border-radius:8px;
+    padding:11px 13px;font-family:inherit;font-size:14px;box-sizing:border-box}
+  input:focus{outline:none;border-color:#22d3ee;box-shadow:0 0 14px -4px #22d3ee}
+  button{width:100%;margin-top:12px;background:linear-gradient(180deg,#0e3a44,#0a262e);border:1px solid #22d3ee;
+    color:#d6feff;border-radius:8px;padding:11px;font-family:inherit;font-weight:800;letter-spacing:2px;cursor:pointer}
+  button:hover{box-shadow:0 0 18px -6px #22d3ee}
+  .err{color:#f43f5e;font-size:11px;text-align:center;margin-top:12px;min-height:14px}
+</style>
+</head>
+<body>
+  <form class="box" method="POST" action="/login">
+    <div class="logo">▚</div>
+    <h1>MESH<span>DASH</span></h1>
+    <div class="sub">sign in</div>
+    <input type="password" name="password" placeholder="password" autofocus autocomplete="current-password">
+    <button type="submit">unlock</button>
+    <div class="err">{{ error }}</div>
+  </form>
+</body>
+</html>

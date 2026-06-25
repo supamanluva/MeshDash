@@ -18,13 +18,13 @@ function toast(msg, err){
 const fmtUptime = s => { s=Math.floor(s); const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h?`${h}h ${m}m`:`${m}m ${s%60}s`; };
 
 // ---------- status poll ----------
-let lastInfo = {};
+let lastInfo = {}, authEnabled = false;
 async function pollStatus(){
   let s; try{ s = await getJSON('/api/status'); }catch(e){ setConn(false); return; }
   setConn(s.connected);
   $('#port-text').textContent = s.port;
   $('#uptime').textContent = fmtUptime(s.uptime||0);
-  const info = s.self_info || {}; lastInfo = info;
+  const info = s.self_info || {}; lastInfo = info; authEnabled = !!s.auth;
 
   // identity
   if(document.activeElement !== $('#node-name')) $('#node-name').value = info.name || '';
@@ -317,7 +317,16 @@ function wire(){
   $('#pubkey').onclick = ()=>{ const f=$('#pubkey').dataset.full; if(f){ navigator.clipboard.writeText(f); toast('pubkey copied'); } };
   $('#modal-close').onclick = closeModal;
   $('#modal').onclick = (e)=>{ if(e.target.id==='modal') closeModal(); };
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape'){ closeModal(); return; }
+    const tag=(e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select'||e.metaKey||e.ctrlKey||e.altKey) return;
+    if(e.key==='/'){ e.preventDefault(); openSearch(); }
+    else if(e.key==='s') openSettings();
+    else if(e.key==='c') openChannelManager();
+    else if(e.key==='n') toggleNotify();
+    else if(e.key==='?') openShortcuts();
+  });
 }
 // ---------- chat: thread sidebar (channels + PMs) with unread badges ----------
 let activeThread = 'chan:0', activeDm = null, knownChannels = [], contactKeys = {}, contactData = {}, threads = [];
@@ -547,6 +556,17 @@ async function runSearch(q){
   });
 }
 
+// ---------- keyboard shortcuts help ----------
+function openShortcuts(){
+  openModal('Keyboard shortcuts', `
+    <div class="nd-kv"><span>/</span><b>search messages</b></div>
+    <div class="nd-kv"><span>s</span><b>settings</b></div>
+    <div class="nd-kv"><span>c</span><b>channels</b></div>
+    <div class="nd-kv"><span>n</span><b>toggle notifications</b></div>
+    <div class="nd-kv"><span>esc</span><b>close dialog</b></div>
+    <div class="nd-kv"><span>?</span><b>this help</b></div>`);
+}
+
 // ---------- settings ----------
 function openSettings(){
   const i = lastInfo || {};
@@ -572,10 +592,14 @@ function openSettings(){
         <button class="ghost grow" id="set-flood">⇶ flood advert</button>
         <button class="ghost grow" id="set-clock">⏱ sync clock</button>
         <button class="danger grow" id="set-reboot">⟲ reboot</button></div></div>
-    <div class="form-section"><h3>data</h3>
-      <div class="modal-actions"><button class="ghost grow" id="set-export">⭳ export chat history (json)</button></div></div>
+    <div class="form-section"><h3>data &amp; session</h3>
+      <div class="modal-actions"><button class="ghost grow" id="set-export">⭳ export chat (json)</button>
+        <button class="ghost grow" id="set-shortcuts">⌨ shortcuts</button>
+        ${authEnabled?'<button class="ghost grow" id="set-logout">⎋ log out</button>':''}</div></div>
     <div class="modal-actions"><button class="primary grow" id="set-save">save all</button></div>`);
   $('#set-export').onclick = ()=> window.open('/api/export/messages','_blank');
+  $('#set-shortcuts').onclick = openShortcuts;
+  if(authEnabled){ const lo=$('#set-logout'); if(lo) lo.onclick=()=>{ window.location='/logout'; }; }
   $('#set-preset').onclick = ()=>{ $('#set-freq').value=MESH.freq;$('#set-bw').value=MESH.bw;$('#set-sf').value=MESH.sf;$('#set-cr').value=MESH.cr;$('#set-tx').value=MESH.tx; toast('preset filled — hit save'); };
   $('#set-advert').onclick = async ()=>{ try{await postJSON('/api/advert',{flood:false});toast('advert sent');}catch(e){toast(e.message,true);} };
   $('#set-flood').onclick = async ()=>{ try{await postJSON('/api/advert',{flood:true});toast('flood advert sent');}catch(e){toast(e.message,true);} };
@@ -653,6 +677,7 @@ if(_shot){
     if(_shot==='trace') traceContact(first.pubkey, first.name);   // no scroll — clean centered modal
     else if(_shot==='settings') openSettings();
     else if(_shot==='channels') openChannelManager();
+    else if(_shot==='shortcuts') openShortcuts();
     else if(_shot==='search'){ openSearch(); setTimeout(()=>{ const i=$('#search-q'); if(i){ i.value='coffee'; runSearch('coffee'); } }, 200); }
     else if(_shot==='node') openNodeDetail(first.pubkey);
     else if(_shot==='telemetry'){ openNodeDetail(first.pubkey); setTimeout(()=> reqTelemetry(first.pubkey), 350); }

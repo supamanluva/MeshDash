@@ -17,7 +17,8 @@ import sqlite3
 from collections import deque
 from functools import wraps
 
-from flask import Flask, jsonify, request, render_template, Response
+import datetime
+from flask import Flask, jsonify, request, render_template, Response, session, redirect
 
 from meshcore.serial_cx import SerialConnection
 from meshcore.meshcore import MeshCore
@@ -30,6 +31,63 @@ DEMO = os.environ.get("MESHDASH_DEMO") == "1"   # serve synthetic data, no radio
 DEMO_START = time.time()
 
 app = Flask(__name__)
+
+# ----------------------------------------------------------------------------
+# Optional auth — enabled only when MESHDASH_PASSWORD is set
+# ----------------------------------------------------------------------------
+AUTH_PW = os.environ.get("MESHDASH_PASSWORD", "")
+_secret_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meshdash.secret")
+
+
+def _get_secret():
+    s = os.environ.get("MESHDASH_SECRET")
+    if s:
+        return s
+    try:
+        if os.path.exists(_secret_file):
+            return open(_secret_file).read().strip()
+        s = os.urandom(24).hex()
+        open(_secret_file, "w").write(s)
+        return s
+    except Exception:
+        return os.urandom(24).hex()
+
+
+app.secret_key = _get_secret()
+app.permanent_session_lifetime = datetime.timedelta(days=30)
+
+
+@app.before_request
+def _auth_gate():
+    if not AUTH_PW:
+        return
+    p = request.path
+    if p in ("/login", "/sw.js") or p.startswith("/static/"):
+        return
+    if session.get("auth"):
+        return
+    if p.startswith("/api/"):
+        return jsonify(ok=False, error="unauthorized"), 401
+    return redirect("/login")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not AUTH_PW:
+        return redirect("/")
+    if request.method == "POST":
+        if request.form.get("password") == AUTH_PW:
+            session.permanent = True
+            session["auth"] = True
+            return redirect("/")
+        return render_template("login.html", error="Incorrect password")
+    return render_template("login.html", error="")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
 # ----------------------------------------------------------------------------
 # Background asyncio loop (owns the radio connection)
@@ -391,6 +449,7 @@ def api_status():
     return jsonify({
         "connected": state["connected"],
         "demo": DEMO,
+        "auth": bool(AUTH_PW),
         "link": link,
         "port": state["port"],
         "error": state["error"],

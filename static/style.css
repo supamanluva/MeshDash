@@ -286,6 +286,19 @@ button.mini{padding:7px 11px;font-size:11px}
 .chan-row b{flex:1;color:#eaffff}.chan-row .slot{font-size:9px;color:var(--dim)}
 .chan-row.empty-slot b{color:var(--dim);font-style:italic}
 
+/* responsive polish (phones) */
+@media(max-width:600px){
+  .topbar{flex-wrap:wrap;gap:8px;padding:12px 14px}
+  .subtitle{display:none}
+  .grid{padding:12px;gap:12px}
+  .title{font-size:18px}
+  .conn{font-size:11px;gap:7px;flex-wrap:wrap}
+  .modal-box{min-width:auto;width:94vw;padding:16px 16px 18px}
+  .modal-body{min-width:auto;max-width:none}
+  .form-grid{grid-template-columns:1fr}
+  .mini-filter{width:74px}
+}
+
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 @keyframes slidein{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 @keyframes fadein{from{opacity:0}to{opacity:1}}

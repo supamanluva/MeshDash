@@ -35,6 +35,8 @@ Python library and serves a single-page dashboard with a live view of the mesh.
   channels) via styled modals throughout — no browser `prompt()`s.
 - **Notifications & PWA** — opt-in desktop + sound alerts on new messages; **installable**
   (manifest + service worker) with an offline app shell and a standalone window.
+- **Auth & shortcuts** — optional password login (`MESHDASH_PASSWORD`); keyboard shortcuts
+  (`/` search · `s` settings · `c` channels · `n` notifications · `?` help); mobile-responsive.
 - **Actions** — advert / flood advert, clock sync, reboot, rename.
 
 ## Screenshots
@@ -89,9 +91,15 @@ MESHDASH_DEMO=1 uv run python app.py
 
 ## ⚠️ Security
 
-The server is **unauthenticated** and binds to `0.0.0.0`, so anyone who can reach the
-port can control the node. Run it on a **trusted LAN only** — do **not** expose it to the
-internet without adding authentication and TLS first.
+By default the server is unauthenticated and binds to `0.0.0.0`. Gate it with an optional
+password (adds a login page + signed session cookie):
+
+```bash
+MESHDASH_PASSWORD=yoursecret uv run python app.py
+```
+
+The password controls *access* but doesn't *encrypt* traffic — for anything beyond a
+trusted LAN, put it behind HTTPS (e.g. a reverse proxy like Caddy/nginx).
 
 ## License
 
