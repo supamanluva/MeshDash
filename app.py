@@ -362,6 +362,12 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/sw.js")
+def service_worker():
+    # served from root so the worker's scope covers the whole app
+    return app.send_static_file("sw.js"), 200, {"Content-Type": "application/javascript"}
+
+
 @app.route("/api/status")
 def api_status():
     info = MOCK_SELF_INFO if DEMO else (_jsonable(getattr(mc, "self_info", {}) or {}) if mc else {})

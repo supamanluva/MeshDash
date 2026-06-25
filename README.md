@@ -32,6 +32,8 @@ Python library and serves a single-page dashboard with a live view of the mesh.
   your whole message history; export to JSON.
 - **Settings** — one consolidated dialog (identity, location, radio, TX, maintenance,
   channels) via styled modals throughout — no browser `prompt()`s.
+- **Notifications & PWA** — opt-in desktop + sound alerts on new messages; **installable**
+  (manifest + service worker) with an offline app shell and a standalone window.
 - **Actions** — advert / flood advert, clock sync, reboot, rename.
 
 ## Screenshots

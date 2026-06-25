@@ -112,17 +112,52 @@ function drawBattery(mv, hist){
   } else { battChart.data.labels=data.map((_,i)=>i); battChart.data.datasets[0].data=data; battChart.update('none'); }
 }
 
+// ---------- notifications ----------
+let notifyOn = localStorage.getItem('meshdash_notify')==='1';
+let _audioCtx, feedPrimed=false;
+function beep(){
+  try{ _audioCtx = _audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=_audioCtx.createOscillator(), g=_audioCtx.createGain();
+    o.type='sine'; o.frequency.value=880; g.gain.value=0.05;
+    o.connect(g); g.connect(_audioCtx.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001,_audioCtx.currentTime+0.25); o.stop(_audioCtx.currentTime+0.27);
+  }catch(e){}
+}
+function notify(title, body){
+  beep();
+  if(document.hidden && window.Notification && Notification.permission==='granted'){
+    try{ new Notification(title,{body, icon:'/static/icon.svg', silent:true}); }catch(e){}
+  }
+}
+function notifyMessage(e){
+  const d=e.data||{}; let title;
+  if(e.type==='CHANNEL_MSG_RECV'){ const idx=d.channel_idx??0; const c=knownChannels.find(c=>c.idx===idx); title='#'+((c&&c.name)||(idx===0?'public':'ch'+idx)); }
+  else { const pre=d.pubkey_prefix||''; const c=contactKeys[pre]; title=(c&&c.name)||('PM '+pre.slice(0,6)); }
+  notify(title, d.text||'(message)');
+}
+function updateBell(){ const b=$('#btn-notify'); if(b){ b.textContent=notifyOn?'🔔':'🔕'; b.title=notifyOn?'Notifications on':'Notifications muted'; } }
+async function toggleNotify(){
+  if(!notifyOn){
+    if(window.Notification && Notification.permission==='default'){ try{ await Notification.requestPermission(); }catch(e){} }
+    try{ _audioCtx = _audioCtx || new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+    notifyOn=true; toast('notifications on'); beep();
+  } else { notifyOn=false; toast('notifications muted'); }
+  localStorage.setItem('meshdash_notify', notifyOn?'1':'0'); updateBell();
+}
+
 // ---------- live feed + radar ----------
 let lastId = 0;
 const blips = [];
 async function pollEvents(){
   let r; try{ r = await getJSON('/api/events?since='+lastId); }catch(e){ return; }
+  const primed = feedPrimed;
   if(r.events && r.events.length){
     lastId = r.last;
     const feed = $('#feed'), filt = $('#feed-filter').value.toLowerCase();
     const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
     for(const e of r.events){
       addBlip(e.type);
+      if(primed && notifyOn && (e.type==='CONTACT_MSG_RECV'||e.type==='CHANNEL_MSG_RECV')) notifyMessage(e);
       const line = JSON.stringify(e.data);
       if(filt && !(e.type.toLowerCase().includes(filt) || line.toLowerCase().includes(filt))) continue;
       const div = document.createElement('div');
@@ -135,6 +170,7 @@ async function pollEvents(){
     while(feed.children.length>400) feed.removeChild(feed.firstChild);
     if(nearBottom) feed.scrollTop = feed.scrollHeight;
   }
+  feedPrimed = true;
 }
 let evWindow = [];
 function addBlip(type){
@@ -270,6 +306,7 @@ function wire(){
   $('#btn-chat-send').onclick = sendChat; $('#chat-text').onkeydown = e=>{ if(e.key==='Enter') sendChat(); };
   $('#btn-add-chan').onclick = openChannelManager;
   $('#btn-search').onclick = openSearch;
+  $('#btn-notify').onclick = toggleNotify;
   $('#btn-settings').onclick = openSettings;
   $('#btn-clear').onclick = ()=> $('#feed').innerHTML='';
   $('#pubkey').onclick = ()=>{ const f=$('#pubkey').dataset.full; if(f){ navigator.clipboard.writeText(f); toast('pubkey copied'); } };
@@ -577,7 +614,8 @@ function bgGrid(){
 }
 
 // ---------- boot ----------
-initMap(); wire(); radar(); bgGrid();
+initMap(); wire(); radar(); bgGrid(); updateBell();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 loadChannels().then(()=>{ updateChatTitle(); pollThreads(); });
 pollStatus(); pollEvents(); pollContacts(); pollMessages();
 setInterval(pollStatus, 3000);

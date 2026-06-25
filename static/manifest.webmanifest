@@ -1,0 +1,14 @@
+{
+  "name": "MeshDash",
+  "short_name": "MeshDash",
+  "description": "Local control deck for a USB MeshCore companion node",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05080b",
+  "theme_color": "#05080b",
+  "icons": [
+    { "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

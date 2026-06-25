@@ -8,6 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#05080b">
+<link rel="icon" href="/static/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MeshDash">
 </head>
 <body>
 <canvas id="bg-grid"></canvas>
@@ -24,6 +29,7 @@
     <span id="conn-led" class="led"></span>
     <span id="conn-text">connecting…</span>
     <span class="port" id="port-text">/dev/ttyACM0</span>
+    <button id="btn-notify" class="icon-btn" title="Notifications">🔕</button>
     <button id="btn-settings" class="icon-btn" title="Settings">⚙</button>
   </div>
 </header>
