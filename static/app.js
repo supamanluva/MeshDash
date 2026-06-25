@@ -269,6 +269,7 @@ function wire(){
   $('#btn-reboot').onclick = async ()=>{ if(!confirm('Reboot the node?'))return; try{ await postJSON('/api/reboot'); toast('rebooting…'); }catch(e){ toast(e.message,true);} };
   $('#btn-chat-send').onclick = sendChat; $('#chat-text').onkeydown = e=>{ if(e.key==='Enter') sendChat(); };
   $('#btn-add-chan').onclick = openChannelManager;
+  $('#btn-search').onclick = openSearch;
   $('#btn-settings').onclick = openSettings;
   $('#btn-clear').onclick = ()=> $('#feed').innerHTML='';
   $('#pubkey').onclick = ()=>{ const f=$('#pubkey').dataset.full; if(f){ navigator.clipboard.writeText(f); toast('pubkey copied'); } };
@@ -462,6 +463,34 @@ function channelForm(idx, name){
   };
 }
 
+// ---------- search ----------
+function openSearch(){
+  openModal('Search messages', `
+    <div class="field full"><input id="search-q" placeholder="search all messages…" spellcheck="false"></div>
+    <div id="search-results" class="search-results"><div class="empty">type to search your message history</div></div>`);
+  const inp=$('#search-q'); inp.focus();
+  let t; inp.oninput=()=>{ clearTimeout(t); t=setTimeout(()=>runSearch(inp.value), 220); };
+}
+async function runSearch(q){
+  const box=$('#search-results'); if(!box) return;
+  if(!q.trim()){ box.innerHTML='<div class="empty">type to search your message history</div>'; return; }
+  let r; try{ r=await getJSON('/api/search?q='+encodeURIComponent(q)); }catch(e){ return; }
+  const rs=r.results||[];
+  if(!rs.length){ box.innerHTML='<div class="empty">no matches</div>'; return; }
+  box.innerHTML = rs.map(m=>{
+    const t=new Date((m.ts<2e10?m.ts*1000:m.ts)).toLocaleString();
+    const label = m.thread.startsWith('dm:') ? '✉ PM' : (m.thread==='chan:0'?'#public':m.thread.replace('chan:','ch'));
+    const who = m.dir==='out'?'me':(m.who||'');
+    return `<div class="sr" data-thread="${m.thread}"><div class="sr-top"><b>${esc(label)}</b><small>${t}</small></div><div class="sr-text">${esc(who)}: ${esc(m.text)}</div></div>`;
+  }).join('');
+  box.querySelectorAll('.sr').forEach(el=> el.onclick=()=>{
+    const th=el.dataset.thread; closeModal();
+    if(th.startsWith('dm:')){ const pre=th.split(':')[1]; const c=contactKeys[pre];
+      if(c){ openDM(c.pubkey,c.name); return; } activeDm={pubkey:pre,name:pre}; }
+    selectThread(th);
+  });
+}
+
 // ---------- settings ----------
 function openSettings(){
   const i = lastInfo || {};
@@ -487,7 +516,10 @@ function openSettings(){
         <button class="ghost grow" id="set-flood">⇶ flood advert</button>
         <button class="ghost grow" id="set-clock">⏱ sync clock</button>
         <button class="danger grow" id="set-reboot">⟲ reboot</button></div></div>
+    <div class="form-section"><h3>data</h3>
+      <div class="modal-actions"><button class="ghost grow" id="set-export">⭳ export chat history (json)</button></div></div>
     <div class="modal-actions"><button class="primary grow" id="set-save">save all</button></div>`);
+  $('#set-export').onclick = ()=> window.open('/api/export/messages','_blank');
   $('#set-preset').onclick = ()=>{ $('#set-freq').value=MESH.freq;$('#set-bw').value=MESH.bw;$('#set-sf').value=MESH.sf;$('#set-cr').value=MESH.cr;$('#set-tx').value=MESH.tx; toast('preset filled — hit save'); };
   $('#set-advert').onclick = async ()=>{ try{await postJSON('/api/advert',{flood:false});toast('advert sent');}catch(e){toast(e.message,true);} };
   $('#set-flood').onclick = async ()=>{ try{await postJSON('/api/advert',{flood:true});toast('flood advert sent');}catch(e){toast(e.message,true);} };
@@ -564,6 +596,7 @@ if(_shot){
     if(_shot==='trace') traceContact(first.pubkey, first.name);   // no scroll — clean centered modal
     else if(_shot==='settings') openSettings();
     else if(_shot==='channels') openChannelManager();
+    else if(_shot==='search'){ openSearch(); setTimeout(()=>{ const i=$('#search-q'); if(i){ i.value='coffee'; runSearch('coffee'); } }, 200); }
     else if(_shot==='node') openNodeDetail(first.pubkey);
     else if(_shot==='newcontact'){ newUntil[first.pubkey]=Date.now()+30000; toast('new contact: '+first.name); pollContacts(); }
     else openDM(first.pubkey, first.name);

@@ -266,6 +266,16 @@ button.mini{padding:7px 11px;font-size:11px}
 .nd-kv code,.nd-kv b{color:#eaffff;font-size:12px;text-align:right;word-break:break-all}
 .nd-kv code.copy{cursor:pointer;color:var(--green)}
 
+/* chat header tools + search results */
+.chat-tools{display:flex;gap:6px;flex-wrap:wrap}
+.search-results{max-height:52vh;overflow-y:auto;margin-top:10px}
+.search-results::-webkit-scrollbar{width:7px}.search-results::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+.sr{padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:7px;cursor:pointer;background:#0a141a;transition:.12s}
+.sr:hover{border-color:var(--cyan);box-shadow:0 0 12px -5px var(--cyan)}
+.sr-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:3px}
+.sr-top b{color:var(--cyan);font-size:11px}.sr-top small{color:var(--dim);font-size:9px}
+.sr-text{color:#cfe9ee;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* channel manager rows */
 .chan-row{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#0a141a}
 .chan-row b{flex:1;color:#eaffff}.chan-row .slot{font-size:9px;color:var(--dim)}

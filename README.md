@@ -26,7 +26,12 @@ Python library and serves a single-page dashboard with a live view of the mesh.
   add/name **private channels** (optional secret passphrase), and **1-to-1 PMs** with
   **delivery ticks** (✓ sent → ✓✓ delivered, driven by mesh ACKs).
 - **Traceroute** — discover and visualise the repeater hops to any contact (`⤳`).
-- **Contacts** — auto-discovered neighbours; click one to open a PM.
+- **Contacts & node detail** — auto-discovered neighbours; click one for full detail
+  (type, pubkey, distance from you, route, last-heard) with message/trace actions.
+- **History & search** — chat persists across restarts (SQLite); full-text search over
+  your whole message history; export to JSON.
+- **Settings** — one consolidated dialog (identity, location, radio, TX, maintenance,
+  channels) via styled modals throughout — no browser `prompt()`s.
 - **Actions** — advert / flood advert, clock sync, reboot, rename.
 
 ## Screenshots

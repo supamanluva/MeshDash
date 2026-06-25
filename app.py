@@ -13,10 +13,11 @@ import threading
 import time
 import json
 import hashlib
+import sqlite3
 from collections import deque
 from functools import wraps
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, Response
 
 from meshcore.serial_cx import SerialConnection
 from meshcore.meshcore import MeshCore
@@ -59,6 +60,38 @@ rf_times = deque(maxlen=800)         # timestamps of packets heard over the air
 RX_RF_TYPES = {"RX_LOG_DATA", "ADVERTISEMENT", "CONTACT_MSG_RECV", "CHANNEL_MSG_RECV",
                "ACK", "PATH_RESPONSE", "PATH_UPDATE", "NEW_CONTACT"}
 
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meshdash.db")
+_db = None
+_db_lock = threading.Lock()
+
+
+def _db_init():
+    """SQLite store for chat history (disabled in demo mode)."""
+    global _db
+    if DEMO:
+        return
+    _db = sqlite3.connect(DB_PATH, check_same_thread=False)
+    _db.execute("PRAGMA journal_mode=WAL")
+    _db.execute("""CREATE TABLE IF NOT EXISTS messages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, thread TEXT, ts REAL,
+        dir TEXT, text TEXT, who TEXT, status TEXT, ack TEXT)""")
+    _db.execute("CREATE INDEX IF NOT EXISTS idx_thread_ts ON messages(thread, ts)")
+    _db.commit()
+
+
+def _db_load():
+    """Rehydrate in-memory threads from disk on startup."""
+    if _db is None:
+        return
+    for rid, thread, ts, d, text, who, status, ack in _db.execute(
+            "SELECT id,thread,ts,dir,text,who,status,ack FROM messages ORDER BY ts"):
+        m = {"ts": ts, "dir": d, "text": text, "who": who, "_id": rid}
+        if status:
+            m["status"] = status
+        if ack:
+            m["ack"] = ack
+        messages.setdefault(thread, deque(maxlen=500)).append(m)
+
 
 def _add_msg(thread, direction, text, who, ts=None, status=None, ack=None):
     m = {"ts": ts or time.time(), "dir": direction, "text": text, "who": who}
@@ -66,7 +99,17 @@ def _add_msg(thread, direction, text, who, ts=None, status=None, ack=None):
         m["status"] = status
     if ack:
         m["ack"] = ack
-    messages.setdefault(thread, deque(maxlen=300)).append(m)
+    messages.setdefault(thread, deque(maxlen=500)).append(m)
+    if _db is not None:
+        try:
+            with _db_lock:
+                cur = _db.execute(
+                    "INSERT INTO messages(thread,ts,dir,text,who,status,ack) VALUES(?,?,?,?,?,?,?)",
+                    (thread, m["ts"], direction, text, who, status, ack))
+                m["_id"] = cur.lastrowid
+                _db.commit()
+        except Exception:
+            pass
     return m
 
 
@@ -110,6 +153,13 @@ def _on_event(ev):
             m = pending_acks.pop(payload.get("code"), None)
             if m:
                 m["status"] = "delivered"
+                if _db is not None and m.get("_id"):
+                    try:
+                        with _db_lock:
+                            _db.execute("UPDATE messages SET status='delivered' WHERE id=?", (m["_id"],))
+                            _db.commit()
+                    except Exception:
+                        pass
         if etype == "CHANNEL_MSG_RECV":
             idx = payload.get("channel_idx", 0)
             _add_msg(f"chan:{idx}", "in", payload.get("text", ""), f"ch{idx}",
@@ -279,7 +329,9 @@ def seed_demo():
     event_counts["ACK"] = 6
 
 
-# kick off connection + watchdog (or seed synthetic data in demo mode)
+# persistence + kick off connection + watchdog (or seed synthetic data in demo mode)
+_db_init()
+_db_load()
 if DEMO:
     seed_demo()
 else:
@@ -453,10 +505,49 @@ def api_set_channel():
     return jsonify(ok=True, idx=idx, name=channels.get(idx, name))
 
 
+def _clean_msgs(msgs):
+    return [{k: v for k, v in m.items() if not k.startswith("_")} for m in msgs]
+
+
 @app.route("/api/messages")
 def api_messages():
     thread = request.args.get("thread", "chan:0")
-    return jsonify({"thread": thread, "messages": list(messages.get(thread, []))})
+    return jsonify({"thread": thread, "messages": _clean_msgs(messages.get(thread, []))})
+
+
+@app.route("/api/search")
+def api_search():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"results": []})
+    res = []
+    if _db is not None:
+        for t, ts, d, txt, w in _db.execute(
+                "SELECT thread,ts,dir,text,who FROM messages WHERE text LIKE ? ORDER BY ts DESC LIMIT 100",
+                ("%" + q + "%",)):
+            res.append({"thread": t, "ts": ts, "dir": d, "text": txt, "who": w})
+    else:
+        ql = q.lower()
+        for thread, msgs in messages.items():
+            for m in msgs:
+                if ql in (m.get("text") or "").lower():
+                    res.append({"thread": thread, "ts": m["ts"], "dir": m["dir"], "text": m["text"], "who": m["who"]})
+        res = sorted(res, key=lambda x: -x["ts"])[:100]
+    return jsonify({"results": res})
+
+
+@app.route("/api/export/messages")
+def api_export_messages():
+    out = {}
+    if _db is not None:
+        for t, ts, d, txt, w, st in _db.execute(
+                "SELECT thread,ts,dir,text,who,status FROM messages ORDER BY ts"):
+            out.setdefault(t, []).append({"ts": ts, "dir": d, "text": txt, "who": w, "status": st})
+    else:
+        for t, msgs in messages.items():
+            out[t] = _clean_msgs(msgs)
+    return Response(json.dumps(out, indent=2, default=str), mimetype="application/json",
+                    headers={"Content-Disposition": "attachment; filename=meshdash-messages.json"})
 
 
 @app.route("/api/threads")
