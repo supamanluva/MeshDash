@@ -24,6 +24,7 @@
     <span id="conn-led" class="led"></span>
     <span id="conn-text">connecting…</span>
     <span class="port" id="port-text">/dev/ttyACM0</span>
+    <button id="btn-settings" class="icon-btn" title="Settings">⚙</button>
   </div>
 </header>
 
@@ -159,10 +160,10 @@
 
 <div id="toast" class="toast"></div>
 
-<div id="trace-modal" class="modal">
+<div id="modal" class="modal">
   <div class="modal-box">
-    <div class="modal-head">⤳ route to <span id="trace-name">—</span><button id="trace-close" class="mini">✕</button></div>
-    <div id="trace-body" class="trace-body"></div>
+    <div class="modal-head"><span id="modal-title">—</span><button id="modal-close" class="mini">✕</button></div>
+    <div id="modal-body" class="modal-body"></div>
   </div>
 </div>
 

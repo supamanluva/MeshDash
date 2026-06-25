@@ -168,12 +168,13 @@ async function pollContacts(){
     });
     knownKeys = keys;
   }
-  const box = $('#contacts'); contactKeys = {};
+  const box = $('#contacts'); contactKeys = {}; contactData = {};
   if(!list.length){ box.innerHTML = '<div class="empty">no contacts yet — they appear as nodes advertise</div>'; drawContacts([]); return; }
   box.innerHTML = list.map(ct=>{
     const pubkey = ct.public_key || '';
     const name = ct.adv_name || ct.name || pubkey.slice(0,8) || 'node';
     contactKeys[pubkey.slice(0,12)] = {pubkey, name};
+    contactData[pubkey] = ct;
     const isNew = newUntil[pubkey] && now < newUntil[pubkey];
     const badge = isNew ? '<span class="new-badge">NEW</span>' : '';
     return `<div class="contact${isNew?' new-contact':''}" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open PM">
@@ -182,7 +183,7 @@ async function pollContacts(){
                 <button class="c-trace" title="trace route">⤳</button></span></div>`;
   }).join('');
   box.querySelectorAll('.contact').forEach(el=>{
-    el.onclick=()=> openDM(el.dataset.pubkey, el.dataset.name);
+    el.onclick=()=> openNodeDetail(el.dataset.pubkey);
     const tb=el.querySelector('.c-trace');
     if(tb) tb.onclick=(e)=>{ e.stopPropagation(); traceContact(el.dataset.pubkey, el.dataset.name); };
   });
@@ -267,14 +268,16 @@ function wire(){
   $('#btn-time').onclick = async ()=>{ try{ await postJSON('/api/time/sync'); toast('clock synced'); }catch(e){ toast(e.message,true);} };
   $('#btn-reboot').onclick = async ()=>{ if(!confirm('Reboot the node?'))return; try{ await postJSON('/api/reboot'); toast('rebooting…'); }catch(e){ toast(e.message,true);} };
   $('#btn-chat-send').onclick = sendChat; $('#chat-text').onkeydown = e=>{ if(e.key==='Enter') sendChat(); };
-  $('#btn-add-chan').onclick = addChannel;
+  $('#btn-add-chan').onclick = openChannelManager;
+  $('#btn-settings').onclick = openSettings;
   $('#btn-clear').onclick = ()=> $('#feed').innerHTML='';
   $('#pubkey').onclick = ()=>{ const f=$('#pubkey').dataset.full; if(f){ navigator.clipboard.writeText(f); toast('pubkey copied'); } };
-  $('#trace-close').onclick = ()=> $('#trace-modal').classList.remove('show');
-  $('#trace-modal').onclick = (e)=>{ if(e.target.id==='trace-modal') $('#trace-modal').classList.remove('show'); };
+  $('#modal-close').onclick = closeModal;
+  $('#modal').onclick = (e)=>{ if(e.target.id==='modal') closeModal(); };
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 }
 // ---------- chat: thread sidebar (channels + PMs) with unread badges ----------
-let activeThread = 'chan:0', activeDm = null, knownChannels = [], contactKeys = {}, threads = [];
+let activeThread = 'chan:0', activeDm = null, knownChannels = [], contactKeys = {}, contactData = {}, threads = [];
 let _msgSig = null, _threadSig = null;   // change-detection so we don't re-render (and re-animate) every poll
 const SEEN_KEY = 'meshdash_seen';
 const lastSeen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
@@ -371,35 +374,136 @@ async function addChannel(){
   catch(e){ toast(e.message,true); }
 }
 
+// ---------- generic modal ----------
+function openModal(title, html){ $('#modal-title').textContent=title; $('#modal-body').innerHTML=html; $('#modal').classList.add('show'); }
+function setModalBody(html){ $('#modal-body').innerHTML=html; }
+function closeModal(){ $('#modal').classList.remove('show'); }
+
 // ---------- traceroute ----------
 async function traceContact(pubkey, name){
-  $('#trace-name').textContent = name;
-  $('#trace-body').innerHTML = '<div class="empty">discovering route…</div>';
-  $('#trace-modal').classList.add('show');
+  openModal('⤳ route to '+name, '<div class="empty">discovering route…</div>');
   let r; try{ r = await postJSON('/api/trace',{pubkey}); }
-  catch(e){ $('#trace-body').innerHTML = '<div class="empty">trace failed: '+esc(e.message)+'</div>'; return; }
-  renderTrace(r, name);
+  catch(e){ setModalBody('<div class="empty">trace failed: '+esc(e.message)+'</div>'); return; }
+  setModalBody(traceHtml(r, name));
 }
-function renderTrace(r, name){
+function traceHtml(r, name){
   const selfName = lastInfo.name || 'this node';
   if(r.flood){
-    $('#trace-body').innerHTML = `<div class="hop-chain">
+    return `<div class="hop-chain">
       <div class="hop me">${esc(selfName)}</div><div class="arrow">⇢</div>
       <div class="hop flood">flood<br><small>no fixed path</small></div><div class="arrow">⇢</div>
       <div class="hop dest">${esc(name)}</div></div>
       <div class="trace-note">No direct route learned yet — your node reaches ${esc(name)} by flooding the mesh.<br>
-      Flood-advert your node and send ${esc(name)} a message; once it's delivered (✓✓) the return route is
-      recorded, and tracing again will show the repeater hops.</div>`;
-    return;
+      Send ${esc(name)} a message; once it's delivered (✓✓) the return route is recorded and tracing shows the hops.</div>`;
   }
   const hops = r.hops || [];
   let chain = `<div class="hop me">${esc(selfName)}</div>`;
-  hops.forEach(h=>{
-    chain += `<div class="arrow">⇢</div><div class="hop"><span class="hh">⟲ ${esc(h.hash)}</span>${h.label?'<br><small>'+esc(h.label)+'</small>':''}</div>`;
-  });
+  hops.forEach(h=> chain += `<div class="arrow">⇢</div><div class="hop"><span class="hh">⟲ ${esc(h.hash)}</span>${h.label?'<br><small>'+esc(h.label)+'</small>':''}</div>`);
   chain += `<div class="arrow">⇢</div><div class="hop dest">${esc(name)}</div>`;
-  $('#trace-body').innerHTML = `<div class="hop-chain">${chain}</div>
-    <div class="trace-note">${hops.length} repeater hop${hops.length===1?'':'s'} · direct route learned by the node.</div>`;
+  return `<div class="hop-chain">${chain}</div>
+    <div class="trace-note">${hops.length} repeater hop${hops.length===1?'':'s'} · direct route learned.</div>`;
+}
+
+// ---------- node detail ----------
+const NODE_TYPE = {1:'Companion', 2:'Repeater', 3:'Room server'};
+function haversine(la1,lo1,la2,lo2){ const R=6371,t=x=>x*Math.PI/180,dla=t(la2-la1),dlo=t(lo2-lo1);
+  const a=Math.sin(dla/2)**2+Math.cos(t(la1))*Math.cos(t(la2))*Math.sin(dlo/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+function openNodeDetail(pubkey){
+  const ct = contactData[pubkey] || {};
+  const name = ct.adv_name || ct.name || pubkey.slice(0,8);
+  const type = NODE_TYPE[ct.type] || 'node';
+  const la=ct.adv_lat, lo=ct.adv_lon, hasLoc=(la||lo);
+  let dist='—';
+  if(hasLoc && (lastInfo.adv_lat||lastInfo.adv_lon)) dist = haversine(+lastInfo.adv_lat,+lastInfo.adv_lon,+la,+lo).toFixed(2)+' km';
+  const flood = (ct.out_path_len==null || ct.out_path_len<0);
+  const last = ct.last_advert ? new Date((ct.last_advert<2e10?ct.last_advert*1000:ct.last_advert)).toLocaleString() : '—';
+  openModal(name, `
+    <div class="nd-head"><span class="nd-badge">${type}</span></div>
+    <div class="nd-kv"><span>pubkey</span><code class="copy" data-copy="${pubkey}">${pubkey.slice(0,22)}…</code></div>
+    <div class="nd-kv"><span>location</span><b>${hasLoc?(+la).toFixed(4)+', '+(+lo).toFixed(4):'not shared'}</b></div>
+    <div class="nd-kv"><span>distance</span><b>${dist}</b></div>
+    <div class="nd-kv"><span>route</span><b>${flood?'flood (no fixed path)':(ct.out_path_len+' hop'+(ct.out_path_len===1?'':'s'))}</b></div>
+    <div class="nd-kv"><span>last heard</span><b>${last}</b></div>
+    <div class="modal-actions">
+      <button class="primary grow" id="nd-msg">✉ message</button>
+      <button class="ghost grow" id="nd-trace">⤳ trace route</button>
+    </div>`);
+  $('#modal-body').querySelectorAll('.copy').forEach(el=> el.onclick=()=>{ navigator.clipboard.writeText(el.dataset.copy); toast('pubkey copied'); });
+  $('#nd-msg').onclick = ()=>{ closeModal(); openDM(pubkey, name); };
+  $('#nd-trace').onclick = ()=> traceContact(pubkey, name);
+}
+
+// ---------- channel manager ----------
+function openChannelManager(){
+  const rows = (knownChannels.length?knownChannels:[{idx:0,name:''}]).map(c=>{
+    const label = c.name || (c.idx===0?'Public':'(empty)');
+    return `<div class="chan-row ${c.name?'':'empty-slot'}"><span class="slot">slot ${c.idx}</span><b>${esc(label)}</b>
+      <button class="mini ghost" data-edit="${c.idx}" data-name="${esc(c.name||'')}">edit</button></div>`;
+  }).join('');
+  openModal('Channels', `${rows}<div class="modal-actions"><button class="primary grow" id="ch-new">+ new channel</button></div>`);
+  $('#modal-body').querySelectorAll('[data-edit]').forEach(b=> b.onclick=()=> channelForm(+b.dataset.edit, b.dataset.name));
+  $('#ch-new').onclick = ()=> channelForm(firstFreeSlot(), '');
+}
+function firstFreeSlot(){ for(let i=1;i<=3;i++){ const c=knownChannels.find(c=>c.idx===i); if(!c||!c.name) return i; } return 1; }
+function channelForm(idx, name){
+  openModal('Channel · slot '+idx, `
+    <div class="form-section">
+      <div class="field full"><label>name</label><input id="cf-name" value="${esc(name)}" placeholder="e.g. vnss-crew" spellcheck="false"></div>
+      <div class="field full"><label>secret passphrase (optional)</label><input id="cf-secret" placeholder="blank = key derived from name" spellcheck="false">
+        <div class="help">Members must use the EXACT same name. Add a passphrase for a PRIVATE channel (share it out-of-band); blank derives the key from the name.</div></div>
+    </div>
+    <div class="modal-actions"><button class="primary grow" id="cf-save">save channel</button><button class="ghost" id="cf-back">back</button></div>`);
+  $('#cf-back').onclick = openChannelManager;
+  $('#cf-save').onclick = async ()=>{
+    const nm=$('#cf-name').value.trim(); if(!nm){ toast('name required',true); return; }
+    try{ await postJSON('/api/channel',{idx, name:nm, secret:$('#cf-secret').value||undefined}); toast('channel saved');
+      await loadChannels(); await pollThreads(); closeModal(); selectThread('chan:'+idx); }
+    catch(e){ toast(e.message,true); }
+  };
+}
+
+// ---------- settings ----------
+function openSettings(){
+  const i = lastInfo || {};
+  openModal('Node Settings', `
+    <div class="form-section"><h3>identity</h3>
+      <div class="field full"><label>node name</label><input id="set-name" value="${esc(i.name||'')}" spellcheck="false"></div></div>
+    <div class="form-section"><h3>location</h3>
+      <div class="form-grid">
+        <div class="field"><label>latitude</label><input id="set-lat" type="number" step="0.00001" value="${i.adv_lat??''}"></div>
+        <div class="field"><label>longitude</label><input id="set-lon" type="number" step="0.00001" value="${i.adv_lon??''}"></div></div>
+      <div class="field"><div class="help">Tip: you can also click the map on the dashboard to set this.</div></div></div>
+    <div class="form-section"><h3>radio</h3>
+      <div class="form-grid">
+        <div class="field"><label>freq (MHz)</label><input id="set-freq" type="number" step="0.001" value="${i.radio_freq??''}"></div>
+        <div class="field"><label>bw (kHz)</label><input id="set-bw" type="number" step="0.1" value="${i.radio_bw??''}"></div>
+        <div class="field"><label>sf</label><input id="set-sf" type="number" min="5" max="12" value="${i.radio_sf??''}"></div>
+        <div class="field"><label>cr</label><input id="set-cr" type="number" min="5" max="8" value="${i.radio_cr??''}"></div>
+        <div class="field"><label>tx power (dBm)</label><input id="set-tx" type="number" min="0" max="22" value="${i.tx_power??''}"></div></div>
+      <div class="modal-actions"><button class="ghost" id="set-preset">fill meshat preset</button></div></div>
+    <div class="form-section"><h3>maintenance</h3>
+      <div class="modal-actions">
+        <button class="ghost grow" id="set-advert">⇆ advert</button>
+        <button class="ghost grow" id="set-flood">⇶ flood advert</button>
+        <button class="ghost grow" id="set-clock">⏱ sync clock</button>
+        <button class="danger grow" id="set-reboot">⟲ reboot</button></div></div>
+    <div class="modal-actions"><button class="primary grow" id="set-save">save all</button></div>`);
+  $('#set-preset').onclick = ()=>{ $('#set-freq').value=MESH.freq;$('#set-bw').value=MESH.bw;$('#set-sf').value=MESH.sf;$('#set-cr').value=MESH.cr;$('#set-tx').value=MESH.tx; toast('preset filled — hit save'); };
+  $('#set-advert').onclick = async ()=>{ try{await postJSON('/api/advert',{flood:false});toast('advert sent');}catch(e){toast(e.message,true);} };
+  $('#set-flood').onclick = async ()=>{ try{await postJSON('/api/advert',{flood:true});toast('flood advert sent');}catch(e){toast(e.message,true);} };
+  $('#set-clock').onclick = async ()=>{ try{await postJSON('/api/time/sync');toast('clock synced');}catch(e){toast(e.message,true);} };
+  $('#set-reboot').onclick = async ()=>{ if(!confirm('Reboot the node?'))return; try{await postJSON('/api/reboot');toast('rebooting…');closeModal();}catch(e){toast(e.message,true);} };
+  $('#set-save').onclick = async ()=>{
+    try{
+      const name=$('#set-name').value.trim();
+      if(name && name!==i.name) await postJSON('/api/name',{name});
+      const lat=parseFloat($('#set-lat').value), lon=parseFloat($('#set-lon').value);
+      if(!isNaN(lat)&&!isNaN(lon)) await postJSON('/api/location',{lat,lon});
+      await postJSON('/api/radio',{freq:+$('#set-freq').value,bw:+$('#set-bw').value,sf:+$('#set-sf').value,cr:+$('#set-cr').value});
+      await postJSON('/api/txpower',{dbm:+$('#set-tx').value});
+      toast('settings saved'); closeModal();
+    }catch(e){ toast(e.message,true); }
+  };
 }
 
 // ---------- canvas: radar ----------
@@ -458,6 +562,9 @@ if(_shot){
     const vals = Object.values(contactKeys); const first = vals[0];
     if(!first) return;
     if(_shot==='trace') traceContact(first.pubkey, first.name);   // no scroll — clean centered modal
+    else if(_shot==='settings') openSettings();
+    else if(_shot==='channels') openChannelManager();
+    else if(_shot==='node') openNodeDetail(first.pubkey);
     else if(_shot==='newcontact'){ newUntil[first.pubkey]=Date.now()+30000; toast('new contact: '+first.name); pollContacts(); }
     else openDM(first.pubkey, first.name);
   }, 1700);
