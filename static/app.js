@@ -274,11 +274,14 @@ function drawContacts(list){              // every other node (magenta) + links 
 let rssiChart, pktChart;
 function drawSignal(sig, counts){
   const rss=sig.map(s=>s.rssi), snr=sig.map(s=>s.snr), lbl=sig.map((_,i)=>i);
+  const rl=$('#rssi-label'); if(rl) rl.textContent = sig.length
+    ? `rssi (dBm) · snr (dB) · ${sig.length} pkt${sig.length===1?'':'s'}`
+    : 'no RF packets heard yet — waiting for receptions…';
   if(!rssiChart){
     rssiChart=new Chart($('#rssi-chart'),{type:'line',
       data:{labels:lbl,datasets:[
-        {label:'rssi',data:rss,borderColor:'#22d3ee',borderWidth:2,pointRadius:0,tension:.35,yAxisID:'y'},
-        {label:'snr',data:snr,borderColor:'#fbbf24',borderWidth:2,pointRadius:0,tension:.35,yAxisID:'y1'}]},
+        {label:'rssi',data:rss,borderColor:'#22d3ee',borderWidth:2,pointRadius:2,tension:.35,yAxisID:'y'},
+        {label:'snr',data:snr,borderColor:'#fbbf24',borderWidth:2,pointRadius:2,tension:.35,yAxisID:'y1'}]},
       options:{animation:false,plugins:{legend:{labels:{color:'#6b8593',boxWidth:9,font:{size:9}}}},
         scales:{x:{display:false},
           y:{position:'left',ticks:{color:'#6b8593',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
