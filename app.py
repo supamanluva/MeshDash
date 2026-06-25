@@ -276,6 +276,12 @@ MOCK_CONTACTS = {
         "type": 2, "out_path_len": -1, "flags": 0}
     for (k, n, la, lo) in _DEMO_NODES
 }
+MOCK_TELEMETRY = [
+    {"channel": 0, "type": "voltage", "value": 4.02},
+    {"channel": 1, "type": "temperature", "value": 21.6},
+    {"channel": 2, "type": "humidity", "value": 46},
+    {"channel": 3, "type": "percentage", "value": 78},
+]
 
 
 def seed_demo():
@@ -636,6 +642,20 @@ def api_trace():
     flood = not raw
     return jsonify(ok=True, flood=flood, name=c.get("adv_name") or "node",
                    hops=[{"hash": h, "label": None} for h in raw])
+
+
+@app.route("/api/telemetry", methods=["POST"])
+def api_telemetry():
+    if not DEMO and mc is None:
+        return jsonify(ok=False, error="node not connected"), 503
+    pubkey = (request.json or {}).get("pubkey", "")
+    if DEMO:
+        return jsonify(ok=True, lpp=MOCK_TELEMETRY)
+    try:
+        lpp = run(mc.commands.req_telemetry_sync(pubkey, timeout=8), timeout=14)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
+    return jsonify(ok=True, lpp=_jsonable(lpp))
 
 
 @app.route("/api/reboot", methods=["POST"])

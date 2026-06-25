@@ -237,6 +237,11 @@ button.mini{padding:7px 11px;font-size:11px}
 .lk b{font-size:14px;color:#eaffff}
 .link-hint{font-size:10px;color:var(--dim);margin-top:12px;line-height:1.45;text-align:center}
 
+/* contacts filter input */
+.mini-filter{margin-left:auto;background:#0a141a;border:1px solid var(--line);color:var(--txt);border-radius:6px;
+  padding:4px 8px;font-family:var(--mono);font-size:10px;width:90px;letter-spacing:0}
+.mini-filter:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 10px -4px var(--cyan)}
+
 /* header icon button */
 .icon-btn{background:transparent;border:1px solid var(--line);color:var(--dim);font-size:15px;line-height:1;
   padding:6px 9px;border-radius:7px;cursor:pointer;transition:.15s}

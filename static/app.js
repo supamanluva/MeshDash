@@ -205,19 +205,22 @@ async function pollContacts(){
     knownKeys = keys;
   }
   const box = $('#contacts'); contactKeys = {}; contactData = {};
+  list.forEach(ct=>{ const pk = ct.public_key || ''; if(!pk) return;
+    contactKeys[pk.slice(0,12)] = {pubkey: pk, name: ct.adv_name || ct.name || pk.slice(0,8) || 'node'};
+    contactData[pk] = ct; });
   if(!list.length){ box.innerHTML = '<div class="empty">no contacts yet — they appear as nodes advertise</div>'; drawContacts([]); return; }
-  box.innerHTML = list.map(ct=>{
+  const flt = ($('#contact-filter')?.value || '').toLowerCase().trim();
+  const shown = flt ? list.filter(ct=> (ct.adv_name||ct.name||'').toLowerCase().includes(flt) || (ct.public_key||'').toLowerCase().includes(flt)) : list;
+  box.innerHTML = shown.length ? shown.map(ct=>{
     const pubkey = ct.public_key || '';
     const name = ct.adv_name || ct.name || pubkey.slice(0,8) || 'node';
-    contactKeys[pubkey.slice(0,12)] = {pubkey, name};
-    contactData[pubkey] = ct;
     const isNew = newUntil[pubkey] && now < newUntil[pubkey];
     const badge = isNew ? '<span class="new-badge">NEW</span>' : '';
-    return `<div class="contact${isNew?' new-contact':''}" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open PM">
+    return `<div class="contact${isNew?' new-contact':''}" data-pubkey="${pubkey}" data-name="${esc(name)}" title="open details">
               <span class="c-left"><b>${esc(name)}</b>${badge}</span>
               <span class="c-right"><small>${pubkey.slice(0,8)}… ✉</small>
                 <button class="c-trace" title="trace route">⤳</button></span></div>`;
-  }).join('');
+  }).join('') : `<div class="empty">no contacts match “${esc(flt)}”</div>`;
   box.querySelectorAll('.contact').forEach(el=>{
     el.onclick=()=> openNodeDetail(el.dataset.pubkey);
     const tb=el.querySelector('.c-trace');
@@ -255,7 +258,8 @@ function drawContacts(list){              // every other node (magenta) + links 
     const ll=[+la,+lo]; pts.push(ll);
     if(self) L.polyline([self,ll],{color:'#22d3ee',weight:1,opacity:.22,dashArray:'4 5'}).addTo(meshLayer);
     L.circleMarker(ll,{radius:6,color:'#e879f9',fillColor:'#e879f9',fillOpacity:.55,weight:2})
-      .bindTooltip(ct.adv_name||ct.name||'node',{direction:'top'}).addTo(meshLayer);
+      .bindTooltip(ct.adv_name||ct.name||'node',{direction:'top'})
+      .on('click', ()=> openNodeDetail(ct.public_key)).addTo(meshLayer);
   });
   if(!mapFitted && pts.length){
     mapFitted=true;
@@ -308,6 +312,7 @@ function wire(){
   $('#btn-search').onclick = openSearch;
   $('#btn-notify').onclick = toggleNotify;
   $('#btn-settings').onclick = openSettings;
+  const cf=$('#contact-filter'); if(cf) cf.oninput = ()=> pollContacts();
   $('#btn-clear').onclick = ()=> $('#feed').innerHTML='';
   $('#pubkey').onclick = ()=>{ const f=$('#pubkey').dataset.full; if(f){ navigator.clipboard.writeText(f); toast('pubkey copied'); } };
   $('#modal-close').onclick = closeModal;
@@ -464,11 +469,25 @@ function openNodeDetail(pubkey){
     <div class="nd-kv"><span>last heard</span><b>${last}</b></div>
     <div class="modal-actions">
       <button class="primary grow" id="nd-msg">✉ message</button>
-      <button class="ghost grow" id="nd-trace">⤳ trace route</button>
-    </div>`);
+      <button class="ghost grow" id="nd-trace">⤳ trace</button>
+      <button class="ghost grow" id="nd-telem">📊 telemetry</button>
+    </div>
+    <div id="nd-telemetry"></div>`);
   $('#modal-body').querySelectorAll('.copy').forEach(el=> el.onclick=()=>{ navigator.clipboard.writeText(el.dataset.copy); toast('pubkey copied'); });
   $('#nd-msg').onclick = ()=>{ closeModal(); openDM(pubkey, name); };
   $('#nd-trace').onclick = ()=> traceContact(pubkey, name);
+  $('#nd-telem').onclick = ()=> reqTelemetry(pubkey);
+}
+const TELEM_UNITS = {voltage:'V',temperature:'°C',humidity:'%',percentage:'%',illuminance:'lux',current:'A',power:'W',altitude:'m',distance:'m',energy:'kWh',barometer:'hPa',concentration:'ppm'};
+async function reqTelemetry(pubkey){
+  const box=$('#nd-telemetry'); if(box) box.innerHTML='<div class="empty">requesting telemetry…</div>';
+  let r; try{ r=await postJSON('/api/telemetry',{pubkey}); }
+  catch(e){ if(box) box.innerHTML='<div class="empty">telemetry failed: '+esc(e.message)+'</div>'; return; }
+  if(!box) return;
+  const lpp=r.lpp;
+  if(!lpp || !lpp.length){ box.innerHTML='<div class="empty">no telemetry — node didn’t respond (offline / out of range)</div>'; return; }
+  box.innerHTML = '<div class="form-section" style="margin-top:14px"><h3>telemetry</h3>'+
+    lpp.map(d=>`<div class="nd-kv"><span>${esc(String(d.type))}</span><b>${esc(String(d.value))} ${TELEM_UNITS[d.type]||''}</b></div>`).join('')+'</div>';
 }
 
 // ---------- channel manager ----------
@@ -636,6 +655,7 @@ if(_shot){
     else if(_shot==='channels') openChannelManager();
     else if(_shot==='search'){ openSearch(); setTimeout(()=>{ const i=$('#search-q'); if(i){ i.value='coffee'; runSearch('coffee'); } }, 200); }
     else if(_shot==='node') openNodeDetail(first.pubkey);
+    else if(_shot==='telemetry'){ openNodeDetail(first.pubkey); setTimeout(()=> reqTelemetry(first.pubkey), 350); }
     else if(_shot==='newcontact'){ newUntil[first.pubkey]=Date.now()+30000; toast('new contact: '+first.name); pollContacts(); }
     else openDM(first.pubkey, first.name);
   }, 1700);
