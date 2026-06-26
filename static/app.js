@@ -61,6 +61,20 @@ async function pollStatus(){
   $('#pkt-total').textContent = s.event_total||0;
   drawSignal(s.signal_history||[], ec);
   renderLink(s.link);
+  renderRelays(s.relays);
+}
+function renderRelays(r){
+  if(!r) return;
+  $('#relay-avg').textContent = r.avg_hops==null ? '—' : r.avg_hops;
+  const box=$('#relay-list'); if(!box) return;
+  if(!r.hops || !r.hops.length){
+    box.innerHTML='<div class="empty">no relayed packets heard yet — repeaters show up here as your node hears multi-hop traffic</div>'; return;
+  }
+  box.innerHTML = r.hops.map(h=>{
+    const pk=Object.keys(contactData).find(k=>k.toLowerCase().startsWith(h.hash.toLowerCase()));
+    const name = pk ? (contactData[pk].adv_name||contactData[pk].name) : null;
+    return `<div class="nd-kv"><span>⟲ ${esc(h.hash)}${name?' · '+esc(name):''}</span><b>×${h.count}</b></div>`;
+  }).join('');
 }
 function renderLink(l){
   if(!l) return;

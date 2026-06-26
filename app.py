@@ -117,6 +117,8 @@ pending_acks = {}                    # expected_ack hex -> outgoing message dict
 rf_times = deque(maxlen=800)         # timestamps of packets heard over the air
 RX_RF_TYPES = {"RX_LOG_DATA", "ADVERTISEMENT", "CONTACT_MSG_RECV", "CHANNEL_MSG_RECV",
                "ACK", "PATH_RESPONSE", "PATH_UPDATE", "NEW_CONTACT"}
+relay_hops = {}                      # path hop-hash -> times seen (inbound routing)
+path_len_samples = deque(maxlen=300)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meshdash.db")
 _db = None
@@ -207,6 +209,15 @@ def _on_event(ev):
             signal_history.append({"ts": time.time(),
                                    "rssi": payload.get("rssi"),
                                    "snr": payload.get("snr")})
+        _path, _plen = payload.get("path"), payload.get("path_len")
+        if isinstance(_plen, int) and _plen >= 0:
+            path_len_samples.append(_plen)
+            if _path and _plen > 0:
+                chars = max(2, len(_path) // _plen)        # hex chars per hop
+                for i in range(0, len(_path), chars):
+                    h = _path[i:i + chars]
+                    if h:
+                        relay_hops[h] = relay_hops.get(h, 0) + 1
         if etype == "ACK":
             m = pending_acks.pop(payload.get("code"), None)
             if m:
@@ -371,6 +382,9 @@ def seed_demo():
         signal_history.append({"ts": now - (40 - i) * 20, "rssi": rs[i % len(rs)], "snr": sn[i % len(sn)]})
     for i in range(30):
         rf_times.append(now - i * 6)
+    # inbound routing (relays carrying traffic to us) — hashes match demo pubkey prefixes
+    relay_hops.update({"1a2b": 14, "3c4d": 8, "5e6f": 5})
+    path_len_samples.extend([2, 2, 3, 1, 2, 3, 2, 2, 1, 2])
     samples = [
         ("ADVERTISEMENT", {"public_key": _DEMO_NODES[0][0]}),
         ("NEW_CONTACT", {"adv_name": "DEMO-Beacon-X2"}),
@@ -460,6 +474,12 @@ def api_status():
         "event_counts": event_counts,
         "event_total": _event_id,
         "signal_history": list(signal_history),
+        "relays": {
+            "avg_hops": round(sum(path_len_samples) / len(path_len_samples), 1) if path_len_samples else None,
+            "samples": len(path_len_samples),
+            "hops": sorted(({"hash": h, "count": c} for h, c in relay_hops.items()),
+                           key=lambda x: -x["count"])[:10],
+        },
     })
 
 

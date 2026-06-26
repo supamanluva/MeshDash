@@ -22,6 +22,8 @@ Python library and serves a single-page dashboard with a live view of the mesh.
   not being heard — broadcasts like adverts don't ACK).
 - **Live mesh map** (Leaflet) — your node *and every neighbour* plotted with links; click
   the map to set your own position.
+- **Relays** — the repeaters carrying multi-hop traffic *to* your node, with average hop
+  count, resolved to node names (derived from received packet paths).
 - **Chat** — a thread sidebar with **unread badges** covering the public channel,
   add/name **private channels** (optional secret passphrase), and **1-to-1 PMs** with
   **delivery ticks** (✓ sent → ✓✓ delivered, driven by mesh ACKs).

@@ -271,6 +271,13 @@ button.mini{padding:7px 11px;font-size:11px}
 .nd-kv code,.nd-kv b{color:#eaffff;font-size:12px;text-align:right;word-break:break-all}
 .nd-kv code.copy{cursor:pointer;color:var(--green)}
 
+/* relays panel */
+.relay-note{font-size:9px;color:var(--dim);letter-spacing:.5px;line-height:1.4;margin-bottom:10px}
+.relay-note em{color:var(--cyan);font-style:normal}
+.relay-list{max-height:220px;overflow-y:auto}
+.relay-list::-webkit-scrollbar{width:7px}.relay-list::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+.relay-list .nd-kv span{text-transform:none;font-size:11px;color:var(--cyan)}
+
 /* chat header tools + search results */
 .chat-tools{display:flex;gap:6px;flex-wrap:wrap}
 .search-results{max-height:52vh;overflow-y:auto;margin-top:10px}
