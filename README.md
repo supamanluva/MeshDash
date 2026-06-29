@@ -11,7 +11,8 @@ Python library and serves a single-page dashboard with a live view of the mesh.
 ## Features
 
 - **Live packet feed** — every event off the radio, colour-coded by type, with a filter.
-- **Mesh radar** — animated sweep that blips on adverts / contacts / messages.
+- **Mesh radar** — animated sweep with **named blips**: each advert / contact / message
+  flashes its node name at a stable position.
 - **Battery gauge** + voltage history sparkline.
 - **Radio config** — edit freq / bandwidth / SF / coding-rate / TX power, with an
   on-mesh vs. mismatch indicator and a one-click "meshat preset".

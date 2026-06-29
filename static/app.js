@@ -171,7 +171,7 @@ async function pollEvents(){
     const feed = $('#feed'), filt = $('#feed-filter').value.toLowerCase();
     const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
     for(const e of r.events){
-      addBlip(e.type);
+      addBlip(e);
       if(primed && notifyOn && (e.type==='CONTACT_MSG_RECV'||e.type==='CHANNEL_MSG_RECV')) notifyMessage(e);
       const line = JSON.stringify(e.data);
       if(filt && !(e.type.toLowerCase().includes(filt) || line.toLowerCase().includes(filt))) continue;
@@ -188,13 +188,27 @@ async function pollEvents(){
   feedPrimed = true;
 }
 let evWindow = [];
-function addBlip(type){
+function strHash(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; }
+function blipLabel(e){           // resolve a node name + stable id from an event
+  const d=e.data||{};
+  if(e.type==='CHANNEL_MSG_RECV'){ const i=d.channel_idx??0; const c=knownChannels.find(c=>c.idx===i); return {id:'ch'+i, label:'#'+((c&&c.name)||(i===0?'public':'ch'+i))}; }
+  if(e.type==='CONTACT_MSG_RECV'){ const p=d.pubkey_prefix||''; const c=contactKeys[p]; return {id:p, label:(c&&c.name)||('✉ '+p.slice(0,6))}; }
+  const pk=d.public_key||d.pubkey_prefix||'';
+  if(pk){ const c=contactData[pk]||contactKeys[pk.slice(0,12)]; return {id:pk, label:(c&&(c.adv_name||c.name))||pk.slice(0,8)}; }
+  return {id:'', label:''};
+}
+function addBlip(e){
+  const type=e.type;
   const now = Date.now(); evWindow.push(now); evWindow = evWindow.filter(t=>now-t<60000);
   $('#pkt-rate').textContent = evWindow.length;
-  if(['ADVERTISEMENT','NEW_CONTACT','CONTACT_MSG_RECV','CHANNEL_MSG_RECV','PATH_UPDATE','RX_LOG_DATA'].includes(type)){
-    blips.push({a:Math.random()*Math.PI*2, r:0.3+Math.random()*0.62, life:1,
-      c:type.includes('MSG')?'#e879f9':type==='ADVERTISEMENT'?'#22d3ee':'#fbbf24'});
-  }
+  if(!['ADVERTISEMENT','NEW_CONTACT','CONTACT_MSG_RECV','CHANNEL_MSG_RECV','PATH_UPDATE','RX_LOG_DATA'].includes(type)) return;
+  const {id,label} = blipLabel(e);
+  const key = id || type;
+  blips.push({
+    a:(strHash(key)%360)*Math.PI/180,            // stable angle per node
+    r:0.34 + (strHash(key+'r')%1000)/1000*0.58,  // stable radius per node
+    life:1, label,
+    c:type.includes('MSG')?'#e879f9':type==='ADVERTISEMENT'?'#22d3ee':'#fbbf24'});
 }
 
 // ---------- contacts ----------
@@ -661,7 +675,9 @@ function radar(){
     for(let i=blips.length-1;i>=0;i--){ const b=blips[i]; const x=c+Math.cos(b.a)*b.r*c*0.92, y=c+Math.sin(b.a)*b.r*c*0.92;
       ctx.globalAlpha=b.life; ctx.fillStyle=b.c; ctx.beginPath(); ctx.arc(x,y,3.2,0,7); ctx.fill();
       ctx.globalAlpha=b.life*.3; ctx.beginPath(); ctx.arc(x,y,7*(1.4-b.life),0,7); ctx.fill();
-      ctx.globalAlpha=1; b.life-=0.006; if(b.life<=0) blips.splice(i,1); }
+      if(b.label){ ctx.globalAlpha=Math.min(1,b.life*1.3); ctx.fillStyle='#cfe9ee'; ctx.font='9px "JetBrains Mono",monospace';
+        ctx.textAlign = x>c?'end':'start'; ctx.fillText(b.label, x + (x>c?-6:6), y+3); ctx.textAlign='start'; }
+      ctx.globalAlpha=1; b.life-=0.0035; if(b.life<=0) blips.splice(i,1); }
     ang=(ang+0.018)%(Math.PI*2);
     requestAnimationFrame(loop);
   })();
@@ -702,6 +718,8 @@ if(_shot){
     else if(_shot==='settings') openSettings();
     else if(_shot==='channels') openChannelManager();
     else if(_shot==='shortcuts') openShortcuts();
+    else if(_shot==='radar'){ const ls=['DEMO-Relay-01','DEMO-Gateway-7F','#public','DEMO-Repeater-9','DEMO-Node-Ada','DEMO-Beacon-X2'];
+      setInterval(()=> ls.forEach((l,i)=> blips.push({a:(strHash(l)%360)*Math.PI/180, r:0.34+(strHash(l+'r')%1000)/1000*0.58, life:1, label:l, c:i%2?'#22d3ee':'#e879f9'})), 150); }
     else if(_shot==='search'){ openSearch(); setTimeout(()=>{ const i=$('#search-q'); if(i){ i.value='coffee'; runSearch('coffee'); } }, 200); }
     else if(_shot==='node') openNodeDetail(first.pubkey);
     else if(_shot==='telemetry'){ openNodeDetail(first.pubkey); setTimeout(()=> reqTelemetry(first.pubkey), 350); }
