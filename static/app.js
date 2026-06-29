@@ -473,17 +473,20 @@ async function traceContact(pubkey, name){
   openModal('⤳ route to '+name, '<div class="empty">discovering route…</div>');
   let r; try{ r = await postJSON('/api/trace',{pubkey}); }
   catch(e){ setModalBody('<div class="empty">trace failed: '+esc(e.message)+'</div>'); return; }
-  setModalBody(traceHtml(r, name));
+  setModalBody(traceHtml(r, name, pubkey));
 }
-function traceHtml(r, name){
+function traceHtml(r, name, pubkey){
   const selfName = lastInfo.name || 'this node';
   if(r.flood){
+    const t=(contactData[pubkey]||{}).type;
+    const note = (t===2 || t===3)
+      ? `${esc(name)} is a ${t===3?'room server':'repeater'} — it <b>relays</b> traffic but doesn't ACK direct messages, so a fixed route can't be learned this way. To see real hops, trace an <b>online companion</b> node (a person's device) you can message.`
+      : `No direct route learned yet — reached by flooding the mesh. Send ${esc(name)} a message; once it's <b>delivered (✓✓)</b> the return route is recorded and tracing shows the hops. (Only works if they're an online companion node.)`;
     return `<div class="hop-chain">
       <div class="hop me">${esc(selfName)}</div><div class="arrow">⇢</div>
       <div class="hop flood">flood<br><small>no fixed path</small></div><div class="arrow">⇢</div>
       <div class="hop dest">${esc(name)}</div></div>
-      <div class="trace-note">No direct route learned yet — your node reaches ${esc(name)} by flooding the mesh.<br>
-      Send ${esc(name)} a message; once it's delivered (✓✓) the return route is recorded and tracing shows the hops.</div>`;
+      <div class="trace-note">${note}</div>`;
   }
   const hops = r.hops || [];
   let chain = `<div class="hop me">${esc(selfName)}</div>`;
